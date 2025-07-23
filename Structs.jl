@@ -139,3 +139,13 @@ mutable struct unique_Graphs_precalc
     end
 
 end
+#=
+mutable struct embedInfo
+    graph::GraphG
+    embedding::Vector{Int}
+    embedding_matrix::Matrix{Int}
+    function embedInfo(graph,embedding,embedding_matrix)
+        return new(graph,embedding,embedding_matrix)
+    end
+end
+=#

@@ -1,7 +1,7 @@
 using Plots, LaTeXStrings, ColorSchemes
 pyplot()    #using gr plotting backend
-Plots.default(titlefont=(7,), legendfontsize=6, background_color_legend=nothing, foreground_color_legend=nothing,
-grid=false, guidefont=(7,), tickfont=(7,), framestyle=:box, linewidth=1,markerstrokewidth=0,markersize=3.5,markeralpha=0.9, dpi=200)
+Plots.default(titlefont=(10,), legendfontsize=8, background_color_legend=nothing, foreground_color_legend=nothing,
+grid=false, guidefont=(9,), tickfont=(9,), framestyle=:box, linewidth=1,markerstrokewidth=0,markersize=3.5,markeralpha=0.9, dpi=200)
 aps_width = 325 #in pixels, seems to work with pyplot backend  (243 # width of single-colum plot in points, it assumes internally dpi=100 (so we set this above), but this does not limit the resolution since we later save as pdf
 color_vec = [palette(:tab10)[c%10+1] for c in 0:50] #
 #color_vec = ["blue","green","red","cyan","brown","purple","magenta","orange","teal","aquamarine2","steelblue1","darkorchid","grey56","olive","blue","green","red","cyan","brown","purple","magenta","orange","teal","aquamarine2","steelblue1","darkorchid","grey56","olive"]

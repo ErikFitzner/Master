@@ -46,6 +46,7 @@ function get_finite_Lattice(L::Int,geometry::String, j1::Bool, j2::Bool, j3::Boo
     M2 = b*M
     M3 = c*M
     M4 = d*M
+    
     if geometry == "chain" ### chain lattice
         a1 = (1, 0)
         a2 = (0, 1)

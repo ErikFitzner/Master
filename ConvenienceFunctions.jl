@@ -106,8 +106,16 @@ function get_c_iipEqualTime_mat(c_iipDyn_mat::Matrix{Vector{Vector{Tuple{Vector{
 end
 
 ###### bare series polynomial in Gii'(x,m) at Matsubara integer m truncated at n 
-
 """ expansion of the Matsubara correlator TGii'(iνm) as x-Polyomial for spatial entries i,ip of c_iipDyn_mat"""
+function get_TGiip_Matsubara_xpoly(c_iipDyn_mat::Array{Matrix{Float64}},i::Int,ip::Int,m::Int)
+    if m==0
+        p_x = Polynomial(flipEvenIndexEntries(c_iipDyn_mat[i,ip][:,1]))
+    else
+        coeffs_m = [sum([c_iipDyn_mat[i,ip][n+1,lhalf+1] * 1/(2*π*m)^(2*lhalf) for lhalf in 1:9]) for n in 0:n_max]
+        p_x = Polynomial(flipEvenIndexEntries(coeffs_m))
+    end
+    return p_x
+end
 function get_TGiip_Matsubara_xpoly(c_iipDyn_mat::Matrix{Vector{Vector{Tuple{Vector{Int64}, Vector{Rational{Int128}}}}}},i::Int,ip::Int,m::Int)
     @variables x, Δ, x1, x2, x3, x4
     Js = (x1, x2, x3, x4)
@@ -133,6 +141,30 @@ function get_TGiip_Matsubara_xpoly(c_iipDyn_mat::Matrix{Vector{Vector{Tuple{Vect
     end
     return p_x
 end
+
+function get_c_iipDyn_mat_subst(c_iipDyn_mat::Matrix{Vector{Vector{Tuple{Vector{Int64}, Vector{Rational{Int128}}}}}}, hte_lattice::Dyn_HTE_Lattice, α::Float64,β::Float64,γ::Float64)::Array{Matrix{Float64}}
+    lattice = hte_lattice.lattice
+    max_order = size(c_iipDyn_mat[1,1], 1) - 1
+    rel = (α,β,γ)
+    c_iipDyn_mat_subst = Array{Matrix{Float64}}(undef, length(lattice), length(lattice.unitcell.basis))
+    for b in 1:length(lattice.unitcell.basis)
+        for i in 1:length(lattice)
+            coeffs = [zeros(Float64, 10) for _ in 1:max_order+1]
+            for n in 1:max_order+1
+                for (n_bonds, embfac) in c_iipDyn_mat[i,b][n]
+                    Jprod = prod(rel[j-1]^n_bonds[j] for j in 2:length(n_bonds))
+                    coeffs[n] += Jprod * embfac
+                end
+            end
+            coeffs = reduce(vcat, coeffs')
+            c_iipDyn_mat_subst[i,b] = coeffs
+        end
+    end
+    
+    #println("subst = $(c_iipDyn_mat_subst)")
+    return c_iipDyn_mat_subst
+end
+
 
 """ v=[a,b,c,d,...] -> [+a,-b,+c,-d,...] """
 function flipEvenIndexEntries(v)
@@ -269,23 +301,26 @@ function create_brillouin_zone_path(points, num_samples::Int)
 end
 
 
-
 #Fourier Transforms
 """ computes the spatial FT of c_iipDyn for momentum k, assumes inversion symmetry of the lattice to get real FT transform, sums over all basis states"""
 function get_c_k(k::Tuple{Vararg{<:Real}},c_iipDyn_mat::Array{T},hte_lattice::Dyn_HTE_Lattice) where {T}
+
     lattice = hte_lattice.lattice
     center_sites = hte_lattice.basis_positions
-    zero_vector = zeros(Rational{Int128}, 10)
-    z = [copy(zero_vector) for _ in 1:length(c_iipDyn_mat[1])]
 
-    # Compute Fourier transformation at momentum k. The real-space position of the i-th spin is obtained via getSitePosition(lattice,i). 
-    for b in 1:length(lattice.unitcell.basis)
-        for i in 1:length(lattice)
-            vals = [isempty(group) ? zero_vector : getindex.(group, 2)[1] for group in c_iipDyn_mat[i,b]]
-            z += cos(dot(k, getSitePosition(lattice,i) .- getSitePosition(lattice,center_sites[b]))) * vals
+        if T == Taylor1{Float64}
+            z = Taylor1(0)
+        else
+            z = zeros(size(c_iipDyn_mat[1]))
         end
-    end
-    c_kDyn = z / length(center_sites)
+        
+        # Compute Fourier transformation at momentum k. The real-space position of the i-th spin is obtained via getSitePosition(lattice,i). 
+        for b in 1:length(lattice.unitcell.basis)
+            for i in 1:length(lattice)
+                z += cos(dot(k,getSitePosition(lattice,i).-getSitePosition(lattice,center_sites[b]))) *  c_iipDyn_mat[i,b]
+            end
+        end
+        c_kDyn = z / length(center_sites) 
     
        #=  #set everything below 1e-12 to zero.
         for c_pos in  eachindex(c_kDyn)
@@ -294,7 +329,7 @@ function get_c_k(k::Tuple{Vararg{<:Real}},c_iipDyn_mat::Array{T},hte_lattice::Dy
             end
         end =#
 
-    return reduce(vcat, c_kDyn')
+    return return c_kDyn
 end
 
 function get_c_k(kvec::AbstractArray{<:Tuple{Vararg{<:Real}}},c_iipDyn_mat::Array{T},hte_lattice::Dyn_HTE_Lattice) where {T}
@@ -307,7 +342,6 @@ function inverse_fourier_transform(kvals::AbstractArray{<:Tuple{Vararg{<:Real}}}
     ,c_kDyn::AbstractArray{T}
     ,
     hte_lattice::Dyn_HTE_Lattice)::Matrix{T} where {T}
-    
 
     #check if kvals and c_kDyn have same dimensions
     if size(c_kDyn) != size(kvals)
@@ -581,7 +615,7 @@ end
 """ get the dynamical spin structure factor from the correlation matrix c_iipDyn_mat 
 using pade approximants for the moments either in the variable x = J/T ("pade") or in the variable
 u = tanh(f*x) ("u_pade")   """
-function get_JSkw_mat(method::String,x::Float64,k_vec::Vector,w_vec::Vector{Float64},c_iipDyn_mat::Array{Matrix{Rational{Int128}}},lattice::Dyn_HTE_Lattice;f::Float64=0.48,η::Float64=0.01,r_min::Int=3,r_max::Int=3,r_ext::Int=1000,intercept0::Bool=true)
+function get_JSkw_mat(method::String,x::Float64,k_vec::Vector,w_vec::Vector{Float64},c_iipDyn_mat::Array{Matrix{Float64}},lattice::Dyn_HTE_Lattice;f::Float64=0.48,η::Float64=0.01,r_min::Int=3,r_max::Int=3,r_ext::Int=1000,intercept0::Bool=true)
 
     JSkw_mat = 1.0*zeros(length(k_vec),length(w_vec))
 
@@ -655,6 +689,7 @@ function get_JSkw_mat(method::String,x::Float64,k_vec::Vector,w_vec::Vector{Floa
     return JSkw_mat
 end
 
+
 function extrapolate_series(series,method::String,parameters) 
     if method == "pade"
         return get_pade(series,parameters[1],parameters[2])
@@ -665,8 +700,6 @@ function extrapolate_series(series,method::String,parameters)
     end
 
 end
-
-
 
 """
 Find the smallest x in [x_min, x_max] such that |f1(x) - f2(x)| > epsilon.
@@ -685,4 +718,26 @@ function find_divergence_point(f1, f2, epsilon; x_min=0.0, x_max=10.0, step=0.01
     end
 
     return nothing  # No divergence found in the interval
+end
+
+
+function subvalue(result::Num, a::Float64)
+    m = 1
+    @variables x1 x2 x3 x4 Δ
+    vars_in_result = Symbolics.get_variables(result)
+    subs_dict = Dict(
+        #x1 => 4,
+        x2 => a*x1,
+        #x3 => x1,
+        #x4 => 0,
+        #Δ => 1/(2*pi*m)
+    )
+    filtered_subs = Dict(k => v for (k,v) in subs_dict if any(isequal(k), vars_in_result))
+    subs_expr = substitute(result, filtered_subs)
+    # Simplify or evaluate numerically
+    subs_expr_val = Symbolics.value(subs_expr)
+    #println("specific values: $(subs_expr_val)")
+
+    f_num = Symbolics.build_function(subs_expr_val, x1; expression=Val{false})
+    return f_num
 end
