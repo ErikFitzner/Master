@@ -445,6 +445,7 @@ function getSymmetryGroup(geometry::String)
     """ creates symmetry group for corresponding Lattice
     Currently implmented:
         - square
+        - Shastry-Sutherland
         - triang
         - honeycomb
         - pyrochlore
@@ -463,14 +464,30 @@ function getSymmetryGroup(geometry::String)
         a1 = (1, 0)
         a2 = (0, 1)
 
-        C_4 = sym_element([0 1; -1 0],[0,0])
-        Px = sym_element([-1 0; 0 1],[0,0])
+        C_4 = sym_element([0 -1; 1 0], [0, -1])
+        Mx = sym_element([-1 0; 0 1],[0,0])
+        My = sym_element([1 0; 0 -1],[0,0])
+        M_diag1 = sym_element([0 1; 1 0],[0,-1])
+        M_diag2 = sym_element([0 -1; -1 0],[0,-1])
+        Inv = sym_element([-1 0; 0 -1],[0,0])
 
-        basis = sym_group([neutral_elem(C_4),C_4,Px])
+        basis = sym_group([neutral_elem(C_4),C_4,Mx,My,M_diag1,M_diag2,Inv])
         translation_Group = translation_group([a1,a2])
         symmetry_Group = generate_symmetry_group(basis,translation_Group)
 
-    elseif geometry == "simple_cubic" ### Square lattice
+    elseif geometry == "Shastry-Sutherland"
+        a1 = (-sqrt(2), sqrt(2))
+        a2 = (sqrt(2), sqrt(2))
+
+        C_4 = sym_element([0 1; -1 0],[0,0])
+        Px = sym_element([-1 0; 0 1],[0,0])
+        Pd = sym_element([0 1; 1 0],[0,0])
+        
+        basis = sym_group([neutral_elem(C_4),Px])
+        translation_Group = translation_group([a1,a2])
+        symmetry_Group = generate_symmetry_group(basis,translation_Group)
+
+    elseif geometry == "simple_cubic"
         a1 = (1, 0, 0)
         a2 = (0, 1 , 0)
         a3 = (0, 0 , 1)
@@ -483,7 +500,7 @@ function getSymmetryGroup(geometry::String)
         translation_Group = translation_group([a1,a2,a3])
         symmetry_Group = generate_symmetry_group(basis,translation_Group)
 
-    elseif geometry == "triang" ### Square lattice
+    elseif geometry == "triang"
         a1 = (1/2, sqrt(3)/2)
         a2 = (1/2, -sqrt(3)/2)
 
@@ -493,7 +510,7 @@ function getSymmetryGroup(geometry::String)
         translation_Group = translation_group([a1,a2])
         symmetry_Group = generate_symmetry_group(basis,translation_Group)
 
-    elseif geometry == "kagome" ### Square lattice
+    elseif geometry == "kagome"
         a1 = (1, sqrt(3))
         a2 = (1, -sqrt(3))
 
@@ -503,7 +520,7 @@ function getSymmetryGroup(geometry::String)
         translation_Group = translation_group([a1,a2])
         symmetry_Group = generate_symmetry_group(basis,translation_Group)
 
-    elseif geometry == "pyrochlore" ### Square lattice
+    elseif geometry == "pyrochlore"
         a1 = (0,1/2,1/2)
         a2 = (1/2,0,1/2)
         a3 = (1/2,1/2,0)

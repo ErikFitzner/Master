@@ -14,7 +14,7 @@ function latticeToGraph(lattice::Lattice)::SimpleWeightedGraph{Int}
             u = ints[v][k]
             if u != v && !has_edge(g, v, u)
                 M = imats[v][k]
-                w = M.m11 ###### Change here for XXZ!
+                w = M.m11
                 add_edge!(g, v, u, w)
             end
         end
@@ -22,7 +22,6 @@ function latticeToGraph(lattice::Lattice)::SimpleWeightedGraph{Int}
 
     return g
 end
-
 
 function get_finite_Lattice(L::Int,geometry::String, j1::Bool, j2::Bool, j3::Bool, j4::Bool; PBC::Bool = true)
     """ creates lattice and corresponding graphs, L is the linear size, PBC sets the use of boundary conditions.
@@ -46,7 +45,7 @@ function get_finite_Lattice(L::Int,geometry::String, j1::Bool, j2::Bool, j3::Boo
     M2 = b*M
     M3 = c*M
     M4 = d*M
-    
+
     if geometry == "chain" ### chain lattice
         a1 = (1, 0)
         a2 = (0, 1)
@@ -95,32 +94,62 @@ function get_finite_Lattice(L::Int,geometry::String, j1::Bool, j2::Bool, j3::Boo
 
         l = (L, L)
 
+    elseif geometry == "Shastry-Sutherland"
+        a1 = (-sqrt(2), sqrt(2))
+        a2 = (sqrt(2), sqrt(2))
+        uc = UnitCell(a1, a2)
+
+        # Four basis sites per cell
+        b0 = addBasisSite!(uc, (0.0, 0.0))
+        b1 = addBasisSite!(uc, (sqrt(2)/2, sqrt(2)/2))
+        b2 = addBasisSite!(uc, (-sqrt(2)/2, sqrt(2)/2))
+        b3 = addBasisSite!(uc, (0.0, sqrt(2)))
+
+        # Nearest-neighbor J1 within cell
+        addInteraction!(uc, b0, b1, M1, (0, 0))
+        addInteraction!(uc, b1, b3, M1, (0, 0))
+        addInteraction!(uc, b0, b2, M1, (0, 0))
+        addInteraction!(uc, b2, b3, M1, (0, 0))
+
+        # Nearest-neighbor J1 to adjacent cells via translation
+        addInteraction!(uc, b0, b2, M1, (1, 0))
+        addInteraction!(uc, b1, b3, M1, (1, 0))
+        addInteraction!(uc, b2, b3, M1, (0, 1))
+        addInteraction!(uc, b0, b1, M1, (0, 1))
+
+        # J2 diagonal dimers on alternating plaquettes
+        addInteraction!(uc, b0, b3, M2, (0, 0))
+        addInteraction!(uc, b1, b2, M2, (1, -1))
+
+        # System size in number of primitive cells
+        l = (L, L)
+
+
     elseif geometry == "cluster4"
-    # Cluster of 4 spins with all-to-all interactions
-    a1 = (1, 0)
-    a2 = (0, 1)
-    uc = UnitCell(a1, a2)
+        # Cluster of 4 spins with all-to-all interactions
+        a1 = (1, 0)
+        a2 = (0, 1)
+        uc = UnitCell(a1, a2)
 
-    # Add 4 basis sites
-    b0 = addBasisSite!(uc, (0.0, 0.0))
-    b1 = addBasisSite!(uc, (1.0, 0.0))
-    b2 = addBasisSite!(uc, (0.0, 1.0))
-    b3 = addBasisSite!(uc, (1.0, 1.0))
+        # Add 4 basis sites
+        b0 = addBasisSite!(uc, (0.0, 0.0))
+        b1 = addBasisSite!(uc, (1.0, 0.0))
+        b2 = addBasisSite!(uc, (0.0, 1.0))
+        b3 = addBasisSite!(uc, (1.0, 1.0))
 
-    # Add all-to-all interactions between different spins
-    # Non-Diagonals
-    addInteraction!(uc, b0, b1, M1, (0, 0))
-    addInteraction!(uc, b0, b2, M1, (0, 0))
-    addInteraction!(uc, b1, b3, M1, (0, 0))
-    addInteraction!(uc, b2, b3, M1, (0, 0))
+        # Add all-to-all interactions between different spins
+        # Non-Diagonals
+        addInteraction!(uc, b0, b1, M1, (0, 0))
+        addInteraction!(uc, b0, b2, M1, (0, 0))
+        addInteraction!(uc, b1, b3, M1, (0, 0))
+        addInteraction!(uc, b2, b3, M1, (0, 0))
 
-    # Diagonals
-    addInteraction!(uc, b0, b3, M2, (0, 0))
-    addInteraction!(uc, b1, b2, M2, (0, 0))
+        # Diagonals
+        addInteraction!(uc, b0, b3, M2, (0, 0))
+        addInteraction!(uc, b1, b2, M2, (0, 0))
 
-    # Lattice size is just one unit cell — the cluster
-    l = (1, 1)
-
+        # Lattice size is just one unit cell — the cluster
+        l = (1, 1)
 
     elseif geometry == "simple_cubic" ### Square lattice
         a1 = (1, 0, 0)
@@ -198,9 +227,9 @@ function get_finite_Lattice(L::Int,geometry::String, j1::Bool, j2::Bool, j3::Boo
         uc = UnitCell(a1,a2,a3)
 
         b0 = addBasisSite!(uc, (0.0, 0.0, 0.0))
-        b1 = addBasisSite!(uc, (0.0, 1/4,1/4))
-        b2 = addBasisSite!(uc, (1/4, 0.0 ,1/4))
-        b3 = addBasisSite!(uc, (1/4,1/4, 0.0))
+        b1 = addBasisSite!(uc, (0.0, 1/4, 1/4))
+        b2 = addBasisSite!(uc, (1/4, 0.0, 1/4))
+        b3 = addBasisSite!(uc, (1/4, 1/4, 0.0))
 
         addInteraction!(uc, b0, b1, M1, (0, 0, 0))
         addInteraction!(uc, b0, b2, M1, (0, 0, 0))
@@ -251,15 +280,16 @@ function find_graph_center(graph)
     """
 
     n = nv(graph)  # Number of vertices
-    distances = Graphs.floyd_warshall_shortest_paths(graph).dists  # All-pairs shortest path distances
-    
+    graph_unweighted = toSimpleGraph(graph)
+    distances = Graphs.floyd_warshall_shortest_paths(graph_unweighted).dists  # All-pairs shortest path distances
+
     function mean(x)
         sum(x)/length(x)
     end
 
     # Compute the average distance for each vertex
     avg_distances = [mean(filter(x -> x < typemax(Int), distances[i, :])) for i in 1:n]
-    
+
     # Find the minimum average distance
     min_avg_distance = minimum(avg_distances)
     
@@ -307,15 +337,18 @@ function getLattice(L::Int,geometry::String, j1::Bool, j2::Bool, j3::Bool,j4::Bo
         return replaced_tuples
     end
 
+    max_range = maximum([j1 ? 1 : 0, j2 ? 2 : 0, j3 ? 3 : 0, j4 ? 4 : 0])
+    max_range = max(max_range, 1)
+    L2 = L * max_range
 
     # Get the lattice and its corresponding graph representation
-    lattice, LatGraph = get_finite_Lattice(2 * L + 1,geometry,j1,j2,j3,j4; PBC = false)
+    lattice, LatGraph = get_finite_Lattice(2 * L2 + 1,geometry,j1,j2,j3,j4; PBC = false)
 
     # Extract the number of sites in the unit cell
     basis = length(lattice.unitcell.basis)
 
     # Compute the indices of the "center" vertices in the lattice
-    center_vertices = [basis * sum([(2L + 1)^n * L for n = 0:(length(lattice.size) - 1)]) + b for b in 1:basis]
+    center_vertices = [basis * sum([(2*L2 + 1)^n * L2 for n = 0:(length(lattice.size) - 1)]) + b for b in 1:basis]
 
     # Get the position of the first center vertex (used as a reference point later)
     center_pos = lattice.sitePositions[center_vertices[1]]
@@ -335,6 +368,7 @@ function getLattice(L::Int,geometry::String, j1::Bool, j2::Bool, j3::Bool,j4::Bo
     deleteat!(lattice.sitePositions, too_large)
     lattice.length = length(lattice.sitePositions)  # Update the lattice length
     deleteat!(lattice.interactionSites, too_large)  # Remove interactions involving deleted sites
+    deleteat!(lattice.interactionMatrices, too_large)
 
     # Re-center the remaining site positions relative to the initial center vertex
     lattice.sitePositions = [pos - center_pos for pos in lattice.sitePositions]
@@ -349,7 +383,7 @@ function getLattice(L::Int,geometry::String, j1::Bool, j2::Bool, j3::Bool,j4::Bo
     center_sites = find_graph_center(gg)
 
     # Return the modified lattice, its graph representation, and the central site(s)
-    return Dyn_HTE_Lattice(geometry ,lattice, gg, center_sites)
+    return Dyn_HTE_Lattice(geometry, lattice, gg, center_sites)
 end
 
 ###### TESTS ############

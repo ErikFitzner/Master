@@ -49,7 +49,7 @@ function get_c_iipDyn_mat(hte_lattice::Dyn_HTE_Lattice, hte_graphs::Vector{Vecto
     try 
         sym_G,transl_G = getSymmetryGroup(hte_lattice.name) 
     catch err
-        println("Symmetry for lattice "*hte_lattice.name*"not implemented, continue without using symmetries:" )
+        println("Symmetry for lattice "*hte_lattice.name*" not implemented, continue without using symmetries:" )
         return get_c_iipDyn_mat(hte_lattice.graph, hte_lattice.basis_positions, hte_graphs, C_Dict_vec; verbose = verbose, max_order = max_order)
     end
 
@@ -64,7 +64,7 @@ function get_c_iipDyn_mat(hte_lattice::Dyn_HTE_Lattice, hte_graphs::Vector{Vecto
     println("Calculating c_iipDyn_mat")
 
     ##preallocate output matrix 
-    GiipDyn_mat = Array{Vector{Vector{Tuple{Vector{Int64}, Vector{Rational{Int128}}}}}}(undef, lattice.length,length(lattice.unitcell.basis));
+    GiipDyn_mat = Array{Vector{Vector{Tuple{Vector{Int64}, Vector{Rational{Int128}}}}}}(undef, lattice.length,length(hte_lattice.basis_positions)); #length(lattice.unitcell.basis)
     reduced_Giip = Vector{Vector{Vector{Tuple{Vector{Int64}, Vector{Rational{Int128}}}}}}(undef, length(bond_vec_red))
 
     max_order = min(max_order,length(C_Dict_vec)-1)
@@ -79,7 +79,7 @@ function get_c_iipDyn_mat(hte_lattice::Dyn_HTE_Lattice, hte_graphs::Vector{Vecto
     
     ## fill the full correlation matrix according to the reduction_dict
     for jp = 1:lattice.length
-        for b = 1:length(lattice.unitcell.basis)
+        for b = 1:length(hte_lattice.basis_positions) #length(lattice.unitcell.basis)
         GiipDyn_mat[jp,b] = reduced_Giip[reduction_dict[CartesianIndex(b,jp)]]
         end
     end
@@ -146,8 +146,8 @@ function get_c_iipDyn_mat_subst(c_iipDyn_mat::Matrix{Vector{Vector{Tuple{Vector{
     lattice = hte_lattice.lattice
     max_order = size(c_iipDyn_mat[1,1], 1) - 1
     rel = (α,β,γ)
-    c_iipDyn_mat_subst = Array{Matrix{Float64}}(undef, length(lattice), length(lattice.unitcell.basis))
-    for b in 1:length(lattice.unitcell.basis)
+    c_iipDyn_mat_subst = Array{Matrix{Float64}}(undef, length(lattice), length(hte_lattice.basis_positions)) # length(lattice.unitcell.basis)
+    for b in 1:length(hte_lattice.basis_positions)  # length(lattice.unitcell.basis)
         for i in 1:length(lattice)
             coeffs = [zeros(Float64, 10) for _ in 1:max_order+1]
             for n in 1:max_order+1
@@ -315,7 +315,7 @@ function get_c_k(k::Tuple{Vararg{<:Real}},c_iipDyn_mat::Array{T},hte_lattice::Dy
         end
         
         # Compute Fourier transformation at momentum k. The real-space position of the i-th spin is obtained via getSitePosition(lattice,i). 
-        for b in 1:length(lattice.unitcell.basis)
+        for b in 1:length(hte_lattice.basis_positions) # length(lattice.unitcell.basis)
             for i in 1:length(lattice)
                 z += cos(dot(k,getSitePosition(lattice,i).-getSitePosition(lattice,center_sites[b]))) *  c_iipDyn_mat[i,b]
             end
@@ -615,7 +615,7 @@ end
 """ get the dynamical spin structure factor from the correlation matrix c_iipDyn_mat 
 using pade approximants for the moments either in the variable x = J/T ("pade") or in the variable
 u = tanh(f*x) ("u_pade")   """
-function get_JSkw_mat(method::String,x::Float64,k_vec::Vector,w_vec::Vector{Float64},c_iipDyn_mat::Array{Matrix{Float64}},lattice::Dyn_HTE_Lattice;f::Float64=0.48,η::Float64=0.01,r_min::Int=3,r_max::Int=3,r_ext::Int=1000,intercept0::Bool=true)
+function get_JSkw_mat(method::String,x::Float64,k_vec::Vector,w_vec::Vector{Float64},c_iipDyn_mat::Array{Matrix{Float64}},lattice::Dyn_HTE_Lattice;f::Float64=0.48,η::Float64=0.01,r_min::Int=3,r_max::Int=3,r_ext::Int=1000,intercept0::Bool=true) #f::Float64=0.48
 
     JSkw_mat = 1.0*zeros(length(k_vec),length(w_vec))
 
@@ -643,8 +643,6 @@ function get_JSkw_mat(method::String,x::Float64,k_vec::Vector,w_vec::Vector{Floa
         
         end
 
-
-
         ##pade with u=tanh(f*x) substitution
         if method == "u_pade"
             #if x= 0 we have to be careful with the substitution but case is trivial
@@ -656,7 +654,7 @@ function get_JSkw_mat(method::String,x::Float64,k_vec::Vector,w_vec::Vector{Floa
                 δ_vec,r_vec = fromMomentsToδ([m(x) for m in m_vec_extrapolated_pade])
             else
 
-                m_vec_times_x =[m_vec[i]*Polynomial([0,1]) for i=1:length(m_vec)]
+                m_vec_times_x = [m_vec[i]*Polynomial([0,1]) for i=1:length(m_vec)]
                 m_vec_extrapolated_pade = []
 
 
@@ -664,7 +662,18 @@ function get_JSkw_mat(method::String,x::Float64,k_vec::Vector,w_vec::Vector{Floa
                     p_u = Polynomial(substitution_matrix_arr[m_idx]*coeffs(m_vec_times_x[m_idx]))
                     push!(m_vec_extrapolated_pade, get_pade(p_u,8-m_idx,7-m_idx))
                 end
-                
+                #=
+                if 0.7*pi < k[1] <= 1.5*pi
+                    f = 0.65
+                elseif 0.45*pi < k[1] <= 0.65*pi
+                    f = 0.55 #55
+                elseif 0.65*pi < k[1] <= 0.7*pi
+                    f = 0.65
+                else 
+                    f = 0.75
+                end
+                println("f=$f")
+                =#
                 δ_vec,r_vec = fromMomentsToδ([m(tanh(f*x))/x for m in m_vec_extrapolated_pade])
             end
         end
@@ -720,6 +729,15 @@ function find_divergence_point(f1, f2, epsilon; x_min=0.0, x_max=10.0, step=0.01
     return nothing  # No divergence found in the interval
 end
 
+
+function plotgraphG(n::Int64)
+    fileName="GraphFiles/graphsG_"*string(n)*".jld2"
+    gG_vec = load_object(fileName)
+    for g in gG_vec
+        gplot(g)
+        display(current())
+    end
+end
 
 function subvalue(result::Num, a::Float64)
     m = 1
