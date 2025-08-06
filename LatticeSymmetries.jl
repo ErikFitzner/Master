@@ -464,7 +464,29 @@ function getSymmetryGroup(geometry::String)
         a1 = (1, 0)
         a2 = (0, 1)
 
-        C_4 = sym_element([0 -1; 1 0], [0, -1])
+        C_4 = sym_element([0 1; -1 0],[0,0])
+        Px = sym_element([-1 0; 0 1],[0,0])
+
+        basis = sym_group([neutral_elem(C_4),C_4,Px])
+        translation_Group = translation_group([a1,a2])
+        symmetry_Group = generate_symmetry_group(basis,translation_Group)
+
+    elseif geometry == "Shastry-Sutherland"
+        a1 = (-2, 0)
+        a2 = (0, -2)
+
+        C_4 = sym_element([0 -1; 1 0],[1,0])
+        M_diag = sym_element([0 1; 1 0],[1,1])
+
+        basis = sym_group([neutral_elem(C_4),C_4,M_diag])
+        translation_Group = translation_group([a1,a2])
+        symmetry_Group = generate_symmetry_group(basis,translation_Group)
+    
+    elseif geometry == "Shastry-Sutherland2"
+        a1 = (-sqrt(2), sqrt(2))
+        a2 = (sqrt(2), sqrt(2))
+
+        C_4 = sym_element([0 -1; 1 0],[0,-1])
         Mx = sym_element([-1 0; 0 1],[0,0])
         My = sym_element([1 0; 0 -1],[0,0])
         M_diag1 = sym_element([0 1; 1 0],[0,-1])
@@ -472,18 +494,6 @@ function getSymmetryGroup(geometry::String)
         Inv = sym_element([-1 0; 0 -1],[0,0])
 
         basis = sym_group([neutral_elem(C_4),C_4,Mx,My,M_diag1,M_diag2,Inv])
-        translation_Group = translation_group([a1,a2])
-        symmetry_Group = generate_symmetry_group(basis,translation_Group)
-
-    elseif geometry == "Shastry-Sutherland"
-        a1 = (-sqrt(2), sqrt(2))
-        a2 = (sqrt(2), sqrt(2))
-
-        C_4 = sym_element([0 1; -1 0],[0,0])
-        Px = sym_element([-1 0; 0 1],[0,0])
-        Pd = sym_element([0 1; 1 0],[0,0])
-        
-        basis = sym_group([neutral_elem(C_4),Px])
         translation_Group = translation_group([a1,a2])
         symmetry_Group = generate_symmetry_group(basis,translation_Group)
 

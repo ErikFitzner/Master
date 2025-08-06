@@ -540,7 +540,7 @@ function count_subgraphisomorph_by_J2(
     m = collect(g2.weights)
     n = size(m)[1]
 
-    ### need to convert in multigraph language that yields the destination sites
+    ### need to convert in multigraph language
     gg =Vector{Int}[]
     for src in 1:n-1
         dests = Int[]

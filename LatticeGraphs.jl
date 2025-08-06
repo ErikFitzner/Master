@@ -46,7 +46,19 @@ function get_finite_Lattice(L::Int,geometry::String, j1::Bool, j2::Bool, j3::Boo
     M3 = c*M
     M4 = d*M
 
-    if geometry == "chain" ### chain lattice
+    if geometry == "dimer" ### chain lattice
+        a1 = (1, 0)
+        a2 = (0, 1)
+
+        uc = UnitCell(a1,a2)
+        b0 = addBasisSite!(uc, (0.0,0.0))
+        b1 = addBasisSite!(uc, (1.0, 0.0))
+
+        addInteraction!(uc, b0, b1, M1, (0,0))
+
+        l = (1,1)
+    
+    elseif geometry == "chain" ### chain lattice
         a1 = (1, 0)
         a2 = (0, 1)
 
@@ -94,7 +106,39 @@ function get_finite_Lattice(L::Int,geometry::String, j1::Bool, j2::Bool, j3::Boo
 
         l = (L, L)
 
+
     elseif geometry == "Shastry-Sutherland"
+        a1 = (-2, 0)
+        a2 = (0, -2)
+        uc = UnitCell(a1, a2)
+
+        # Four basis sites per cell
+        b0 = addBasisSite!(uc, (0.0, 0.0))
+        b1 = addBasisSite!(uc, (1.0, 0.0))
+        b2 = addBasisSite!(uc, (1.0, 1.0))
+        b3 = addBasisSite!(uc, (0.0, 1.0))
+
+        # Nearest-neighbor J1 within cell
+        addInteraction!(uc, b0, b1, M1, (0, 0))
+        addInteraction!(uc, b1, b2, M1, (0, 0))
+        addInteraction!(uc, b2, b3, M1, (0, 0))
+        addInteraction!(uc, b3, b0, M1, (0, 0))
+
+        # Nearest-neighbor J1 to adjacent cells via translation
+        addInteraction!(uc, b0, b1, M1, (1, 0))
+        addInteraction!(uc, b3, b2, M1, (1, 0))
+        addInteraction!(uc, b0, b3, M1, (0, 1))
+        addInteraction!(uc, b1, b2, M1, (0, 1))
+
+        # J2 diagonal dimers on alternating plaquettes
+        addInteraction!(uc, b0, b2, M2, (1, 0))
+        addInteraction!(uc, b1, b3, M2, (0, 1))
+
+        # System size in number of primitive cells
+        l = (L, L)
+
+
+    elseif geometry == "Shastry-Sutherland2"
         a1 = (-sqrt(2), sqrt(2))
         a2 = (sqrt(2), sqrt(2))
         uc = UnitCell(a1, a2)
@@ -313,6 +357,12 @@ function getLattice(L::Int,geometry::String, j1::Bool, j2::Bool, j3::Bool,j4::Bo
         center_site = div(chain_length + 1, 2)
         center_sites = [center_site]
         lattice.sitePositions = [lattice.sitePositions[i] .- lattice.sitePositions[center_site] for i in 1:chain_length] #shift center site to zero coordinate
+        return Dyn_HTE_Lattice(geometry ,lattice, LatGraph, center_sites)
+    end
+    if geometry == "dimer"
+        lattice, LatGraph = get_finite_Lattice(1, "dimer",j1,j2,j3,j4; PBC = false)  # assuming you created this case
+        center_sites = collect(1:length(lattice.sitePositions))  # all are center
+        lattice.sitePositions = [pos .- lattice.sitePositions[1] for pos in lattice.sitePositions]
         return Dyn_HTE_Lattice(geometry ,lattice, LatGraph, center_sites)
     end
     if geometry == "cluster4"

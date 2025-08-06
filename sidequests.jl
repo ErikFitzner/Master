@@ -1,8 +1,11 @@
 using Plots
 include("plotConventions.jl")
+include("LatticeGraphs.jl")
+include("Embedding.jl")
+include("ConvenienceFunctions.jl") 
 
 #Plot the movement of the DSF Maxima
-if true
+if false
     # Position of the maxima
     α_list=[0.0,0.2,0.45,0.7,1.0]
     pos_dyn=[[(1,0.13)],[(1,0.13)],[(0.5,1),(1.5,1)],[(0.65,0.73),(1.35,0.73)],[(0.65,0.67),(1.35,0.67)]]
@@ -28,3 +31,79 @@ if true
     display(plt)
     #savefig("Images/DSF_pos_max.png")
 end
+
+if true
+    spin_length = 1/2
+    n_max = 9
+
+    lattice_type1 = "square"
+    lattice_type2 = "Shastry-Sutherland"
+
+    j1 = true
+    j2 = true
+    j3 = false
+    j4 = false
+
+    L = 9
+
+    #hte_lattice1 = getLattice(L,lattice_type1,j1,j2,j3,j4);
+    #hte_lattice2 = getLattice(L,lattice_type2,j1,j2,j3,j4);
+
+    #println(hte_lattice1.lattice.sitePositions[hte_lattice1.basis_positions[1]])
+    #println(hte_lattice2.lattice.sitePositions[hte_lattice2.basis_positions[4]])
+    #println(hte_lattice2.lattice.sitePositions[31])
+    #println(hte_lattice2.basis_positions)
+    
+    #fileName1 = "CaseStudy/Shastry-Sutherland_" * create_spin_string(spin_length) * "_c_iipDyn_nmax" * string(n_max) * "_L" * string(L) * "_J1_$(1*j1)_J2_$(1*j2)_J3_$(1*j3)_J4_$(1*j4).jld2"
+    fileName1 = "CaseStudy/Shastry-Sutherland_" * create_spin_string(spin_length) * "_c_iipDyn_nmax" * string(n_max) * "_L" * string(L) * "_a_$(0.0)_b_$(0.0)_c_$(0.0).jld2"
+    #fileName2 = "CaseStudy/Shastry-Sutherland_" * create_spin_string(spin_length) * "_c_iipDyn_nmax" * string(n_max) * "_L" * string(L) * "_J1_$(1*j1)_J2_$(1*j2)_J3_$(1*j3)_J4_$(1*j4).jld2"
+    fileName2 = "CaseStudy/Shastry-Sutherland_" * create_spin_string(spin_length) * "_c_iipDyn_nmax" * string(n_max) * "_L" * string(L) * "_a_$(0.0)_b_$(0.0)_c_$(0.0).jld2"
+    
+    c_iipDyn_mat1 = load_object(fileName1)
+    c_iipDyn_mat2 = load_object(fileName2)
+
+    idx = 188
+    #println(c_iipDyn_mat2[idx,1]-c_iipDyn_mat1[idx,1])
+    
+    for i in eachindex(c_iipDyn_mat1)
+        A = c_iipDyn_mat1[i]
+        B = c_iipDyn_mat2[i]
+
+        if !isapprox(A, B; atol=1e-6) #!isequal(A, B)
+            println("Mismatch at index $i")
+            println("  A = ", A)
+            println("  B = ", B)
+        end
+    end
+    
+    #println(isequal(c_iipDyn_mat1,c_iipDyn_mat2))
+    
+    #println(size(c_iipDyn_mat1))
+    #println(size(c_iipDyn_mat2))
+
+    #=
+    path = [(pi/2,pi/2),(pi,0),(pi,pi),(pi/2,pi/2),(0.001,0.001),(pi,0)]
+    pathticks = ["(π/2,π/2)","(π,0)","(π,π)","(π/2,π/2)","(0,0)","(π,0)"]
+    Nk = 75  #75
+    k_vec,kticks_positioins = create_brillouin_zone_path(path, Nk)
+    =#
+    #=
+    for i in 1:20
+        println(getSitePosition(hte_lattice1.lattice,i+1).-getSitePosition(hte_lattice1.lattice,i),getSitePosition(hte_lattice2.lattice,i+1).-getSitePosition(hte_lattice2.lattice,i))
+    end
+    =#
+    #=
+    for k_pos in eachindex(k_vec)
+        k = k_vec[k_pos]
+        println(get_c_k(k,c_iipDyn_mat1,hte_lattice1).-get_c_k(k,c_iipDyn_mat2,hte_lattice2))
+    end
+    =#
+    #isequal(c_iipDyn_mat1, c_iipDyn_mat2)
+end
+#=
+path = [(pi/2,pi/2),(pi,0),(pi,pi),(pi/2,pi/2),(0.001,0.001),(pi,0)]
+pathticks = ["(π/2,π/2)","(π,0)","(π,π)","(π/2,π/2)","(0,0)","(π,0)"]
+Nk = 15  #75
+k_vec,kticks_positioins = create_brillouin_zone_path(path, Nk)
+println(typeof(k_vec))
+=#

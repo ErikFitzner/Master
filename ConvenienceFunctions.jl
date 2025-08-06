@@ -152,8 +152,12 @@ function get_c_iipDyn_mat_subst(c_iipDyn_mat::Matrix{Vector{Vector{Tuple{Vector{
             coeffs = [zeros(Float64, 10) for _ in 1:max_order+1]
             for n in 1:max_order+1
                 for (n_bonds, embfac) in c_iipDyn_mat[i,b][n]
-                    Jprod = prod(rel[j-1]^n_bonds[j] for j in 2:length(n_bonds))
-                    coeffs[n] += Jprod * embfac
+                    if length(n_bonds) == 1
+                        coeffs[n] += embfac
+                    else
+                        Jprod = prod(rel[j-1]^n_bonds[j] for j in 2:length(n_bonds))
+                        coeffs[n] += Jprod * embfac
+                    end
                 end
             end
             coeffs = reduce(vcat, coeffs')
@@ -313,11 +317,11 @@ function get_c_k(k::Tuple{Vararg{<:Real}},c_iipDyn_mat::Array{T},hte_lattice::Dy
         else
             z = zeros(size(c_iipDyn_mat[1]))
         end
-        
+
         # Compute Fourier transformation at momentum k. The real-space position of the i-th spin is obtained via getSitePosition(lattice,i). 
-        for b in 1:length(hte_lattice.basis_positions) # length(lattice.unitcell.basis)
+        for b in 1:length(center_sites) # length(lattice.unitcell.basis)
             for i in 1:length(lattice)
-                z += cos(dot(k,getSitePosition(lattice,i).-getSitePosition(lattice,center_sites[b]))) *  c_iipDyn_mat[i,b]
+                z += cos(dot(k,getSitePosition(lattice,i).-getSitePosition(lattice,center_sites[b]))) * c_iipDyn_mat[i,b]
             end
         end
         c_kDyn = z / length(center_sites) 
@@ -619,19 +623,35 @@ function get_JSkw_mat(method::String,x::Float64,k_vec::Vector,w_vec::Vector{Floa
 
     JSkw_mat = 1.0*zeros(length(k_vec),length(w_vec))
 
-    #pre-calculate the substitution matrix
-    if method== "u_pade"
-        substitution_matrix_arr = []
-        for m_idx=1:6
-            push!(substitution_matrix_arr, get_LinearTrafoToCoeffs_u(15-2*m_idx,f))
-        end
-    end
-
-
     for (k_pos,k) in enumerate(k_vec)
         println(k_pos,"/",length(k_vec))
         c_kDyn_mat = get_c_k([k],c_iipDyn_mat,lattice)[1]
         m_vec = get_moments_from_c_kDyn(c_kDyn_mat)[1:7]
+        
+        #=
+        if 0.7*pi < k[1] <= 1.55*pi
+            f = 0.2
+        elseif 0.45 < k[1] <= 0.7*pi
+            f = 0.5
+        else
+            f = 0.7
+        end
+        =#
+        #=
+        if 0.7*pi < k[1] <= 1.5*pi
+            f = 0.65
+        elseif 0.45*pi < k[1] <= 0.65*pi
+            f = 0.55 #55
+        elseif 0.65*pi < k[1] <= 0.7*pi
+            f = 0.65
+        else 
+            f = 0.75
+        end
+        =#
+        substitution_matrix_arr = []
+        for m_idx=1:6
+            push!(substitution_matrix_arr, get_LinearTrafoToCoeffs_u(15-2*m_idx,f))
+        end
 
         ###pade in x=J/T 
         if method=="pade"
@@ -662,18 +682,7 @@ function get_JSkw_mat(method::String,x::Float64,k_vec::Vector,w_vec::Vector{Floa
                     p_u = Polynomial(substitution_matrix_arr[m_idx]*coeffs(m_vec_times_x[m_idx]))
                     push!(m_vec_extrapolated_pade, get_pade(p_u,8-m_idx,7-m_idx))
                 end
-                #=
-                if 0.7*pi < k[1] <= 1.5*pi
-                    f = 0.65
-                elseif 0.45*pi < k[1] <= 0.65*pi
-                    f = 0.55 #55
-                elseif 0.65*pi < k[1] <= 0.7*pi
-                    f = 0.65
-                else 
-                    f = 0.75
-                end
-                println("f=$f")
-                =#
+                
                 δ_vec,r_vec = fromMomentsToδ([m(tanh(f*x))/x for m in m_vec_extrapolated_pade])
             end
         end

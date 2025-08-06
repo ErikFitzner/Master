@@ -1,5 +1,5 @@
 using JLD2, DelimitedFiles, SimpleWeightedGraphs, Plots, Symbolics
-
+#using Profile, ProfileView
 include("plotConventions.jl")
 include("LatticeGraphs.jl")
 include("Embedding.jl")
@@ -11,18 +11,18 @@ include("ConvenienceFunctions.jl")
 
 ### load graph evaluations
 spin_length = 1/2
-n_max = 12
+n_max = 4
 
 ### prepare lattice
-lattice_type = "cluster4" #"Shastry-Sutherland"
+lattice_type = "Shastry-Sutherland"
 
 # Are there J1, J2, J3, J4 interactions?
 j1 = true
-j2 = false
+j2 = true
 j3 = false
 j4 = false
 
-L = 1
+L = 4
 
 hte_lattice = getLattice(L,lattice_type,j1,j2,j3,j4);
 
@@ -36,14 +36,16 @@ if false
 end
 
 ### compute all correlations in the lattice (or load them)
-if false
+if true
     fileName_c = "CaseStudy/$(lattice_type)_" * create_spin_string(spin_length) * "_c_iipDyn_nmax" * string(n_max) * "_L" * string(L) * "_J1_$(1*j1)_J2_$(1*j2)_J3_$(1*j3)_J4_$(1*j4).jld2"
     if isfile(fileName_c)
         println("loading "*fileName_c)
         c_iipDyn_mat = load_object(fileName_c)
     else
         hte_graphs, C_Dict_vec = getGraphsG(spin_length,n_max)
-        c_iipDyn_mat = get_c_iipDyn_mat(hte_lattice,hte_graphs,C_Dict_vec);
+        #Profile.clear()
+        c_iipDyn_mat = get_c_iipDyn_mat(hte_lattice,hte_graphs,C_Dict_vec); # @profile 
+        #ProfileView.view()
         #save_object(fileName_c,c_iipDyn_mat)
     end
 end
@@ -87,7 +89,7 @@ if true
 
     #substitute specific values for x2,x3,x4 to reduce to the previous form of c_iipDyn_mat
     #for i in 1:length(a_vec)
-    a = 0.0 # J_2/J_1
+    a = 1.25 # J_2/J_1
     #a = a_vec[i]
     b = 0.0
     c = 0.0
@@ -151,7 +153,7 @@ if true
     if true
     w_vec = collect(0.0:0.025:4.5) #3.5
     r_max = 3                
-    f = 0.5  #a=0.0-->f=0.7,a=1.0-->f=,a=1.25-->f=0.7,a=2.0-->f=0.5?
+    f = 0.7  #a=0.0-->f=0.7,a=1.0-->f=,a=1.25-->f=0.7,a=2.0-->f=0.5?
     #f = f_vec[i]
     ufromx_mat = get_LinearTrafoToCoeffs_u(n_max+1,f)
     poly_x = Polynomial([0,1],:x)
@@ -191,7 +193,7 @@ if true
 end
 
 ###### plot JS(k,ω)
-if false
+if true
     using CairoMakie
 
     fig = Figure(fontsize=8,size=(aps_width,0.6*aps_width));
