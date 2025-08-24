@@ -483,8 +483,13 @@ function getSymmetryGroup(geometry::String)
         symmetry_Group = generate_symmetry_group(basis,translation_Group)
     
     elseif geometry == "Shastry-Sutherland2"
+        #=
         a1 = (-sqrt(2), sqrt(2))
         a2 = (sqrt(2), sqrt(2))
+        =#
+
+        a1 = (-(1/2+sqrt(3)/2), 1/2+sqrt(3)/2)
+        a2 = (1/2+sqrt(3)/2, 1/2+sqrt(3)/2)
 
         C_4 = sym_element([0 -1; 1 0],[0,-1])
         Mx = sym_element([-1 0; 0 1],[0,0])

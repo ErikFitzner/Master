@@ -139,15 +139,27 @@ function get_finite_Lattice(L::Int,geometry::String, j1::Bool, j2::Bool, j3::Boo
 
 
     elseif geometry == "Shastry-Sutherland2"
+        #=
         a1 = (-sqrt(2), sqrt(2))
         a2 = (sqrt(2), sqrt(2))
         uc = UnitCell(a1, a2)
 
         # Four basis sites per cell
+        
         b0 = addBasisSite!(uc, (0.0, 0.0))
         b1 = addBasisSite!(uc, (sqrt(2)/2, sqrt(2)/2))
         b2 = addBasisSite!(uc, (-sqrt(2)/2, sqrt(2)/2))
         b3 = addBasisSite!(uc, (0.0, sqrt(2)))
+        =#
+
+        a1 = (-(1/2+sqrt(3)/2), 1/2+sqrt(3)/2)
+        a2 = (1/2+sqrt(3)/2, 1/2+sqrt(3)/2)
+        uc = UnitCell(a1, a2)
+
+        b0 = addBasisSite!(uc, (0.0, 0.0))
+        b1 = addBasisSite!(uc, (sqrt(3)/2, 1/2))
+        b2 = addBasisSite!(uc, (-sqrt(3)/2, 1/2))
+        b3 = addBasisSite!(uc, (0.0, 1.0))
 
         # Nearest-neighbor J1 within cell
         addInteraction!(uc, b0, b1, M1, (0, 0))
@@ -206,6 +218,10 @@ function get_finite_Lattice(L::Int,geometry::String, j1::Bool, j2::Bool, j3::Boo
         addInteraction!(uc, b0, b0, M1, (1, 0, 0))
         addInteraction!(uc, b0, b0, M1, (0, 1 ,0))
         addInteraction!(uc, b0, b0, M1, (0, 0, 1))
+
+        addInteraction!(uc, b0, b0, M2, (1, 1, 0))
+        addInteraction!(uc, b0, b0, M2, (1, 0 ,1))
+        addInteraction!(uc, b0, b0, M2, (0, 1, 1))
 
         l = (L, L ,L)
 

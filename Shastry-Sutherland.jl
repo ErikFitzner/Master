@@ -1,5 +1,5 @@
 using JLD2, DelimitedFiles, SimpleWeightedGraphs, Plots, Symbolics
-#using Profile, ProfileView
+
 include("plotConventions.jl")
 include("LatticeGraphs.jl")
 include("Embedding.jl")
@@ -43,10 +43,8 @@ if false
         c_iipDyn_mat = load_object(fileName_c)
     else
         hte_graphs, C_Dict_vec = getGraphsG(spin_length,n_max)
-        #Profile.clear()
-        c_iipDyn_mat = get_c_iipDyn_mat(hte_lattice,hte_graphs,C_Dict_vec); # @profile 
-        #ProfileView.view()
-        #save_object(fileName_c,c_iipDyn_mat)
+        c_iipDyn_mat = get_c_iipDyn_mat(hte_lattice,hte_graphs,C_Dict_vec);
+        save_object(fileName_c,c_iipDyn_mat)
     end
 end
 
@@ -84,12 +82,12 @@ end
 if true
     # for loop with multiple J2/J1
     #k_pihalf = []
-    #a_vec = 1 ./ [0.5,0.8,1.0]
+    #a_vec = 1 ./ [0.25,0.5,0.63]
     #f_vec = [0.7,0.5,0.5]
 
     #substitute specific values for x2,x3,x4 to reduce to the previous form of c_iipDyn_mat
     #for i in 1:length(a_vec)
-    a = 4.0 # J_2/J_1
+    a = 1.25 # J_2/J_1
     #a = a_vec[i]
     b = 0.0
     c = 0.0
@@ -107,7 +105,7 @@ if true
     end
     
     ###### check moments
-    if true
+    if false
         #(we will calculate the first four moments at fixed k)
         k = pi  #define fixed k 
         x_vec = 0:0.01:2.0  #define temperature range of interest
@@ -152,53 +150,79 @@ if true
         ##############
         display(plt_m)
     end
-    if false
-    w_vec = collect(0.0:0.025:4.5) #3.5
-    r_max = 3 #5???     
-    f = 0.7  #a=0.0-->f=0.7,a=1.0-->f=,a=1.25-->f=0.7,a=2.0-->f=0.5?
-    #f = f_vec[i]
-    ufromx_mat = get_LinearTrafoToCoeffs_u(n_max+1,f)
-    poly_x = Polynomial([0,1],:x)
 
-    x = 3.0  # J/T
-    x0 = x/sc  # J1/T
-    u0 = tanh.(f .* x0)
+    if true
+        w_vec = collect(0.0:0.025:5.5) #3.5
+        r_max = 3
+        f = 0.7  #a=0.0-->f=0.7,a=1.0-->f=,a=1.25-->f=0.7,a=2.0-->f=0.5?
+        #f = f_vec[i]
+        ufromx_mat = get_LinearTrafoToCoeffs_u(n_max+1,f)
+        poly_x = Polynomial([0,1],:x)
 
-    ### define and generate k-path 
-    path = [(pi/2,pi/2),(pi,0),(pi,pi),(pi/2,pi/2),(0.001,0.001),(pi,0)]
-    pathticks = ["(π/2,π/2)","(π,0)","(π,π)","(π/2,π/2)","(0,0)","(π,0)"]
+        x = 2.0  # J/T
+        x0 = x/sc  # J1/T
+        u0 = tanh.(f .* x0)
 
-    #path = [(pi/4,pi/4),(pi/2,0),(pi/2,pi/2),(pi/4,pi/4),(0.001,0.001),(pi/2,0)]
-    #pathticks = ["(π/4,π/4)","(π/2,0)","(π/2,π/2)","(π/4,π/4)","(0,0)","(π/2,0)"]
+        ### define and generate k-path 
+        path = [(pi/2,pi/2),(pi,0),(pi,pi),(pi/2,pi/2),(0.001,0.001),(pi,0)]
+        pathticks = ["(π/2,π/2)","(π,0)","(π,π)","(π/2,π/2)","(0,0)","(π,0)"]
 
-    Nk = 75  #75
-    k_vec,kticks_positioins = create_brillouin_zone_path(path, Nk)
-    JSkw_mat = zeros(Nk+1,length(w_vec))
+        #path = [(pi/4,pi/4),(pi/2,0),(pi/2,pi/2),(pi/4,pi/4),(0.001,0.001),(pi/2,0)]
+        #pathticks = ["(π/4,π/4)","(π/2,0)","(π/2,π/2)","(π/4,π/4)","(0,0)","(π/2,0)"]
 
-    ### fill JSkw_mat
-    for k_pos in eachindex(k_vec)
-        k = k_vec[k_pos]
-        c_kDyn = get_c_k(k,c_iipDyn_mat_subst,hte_lattice)
-        m_vec = get_moments_from_c_kDyn(c_kDyn)
-        m0 = Float64[]
+        Nk = 75  #75
+        k_vec,kticks_positioins = create_brillouin_zone_path(path, Nk)
+        JSkw_mat = zeros(Nk+1,length(w_vec))
 
-        for r in 0:r_max
-            xm_norm_r = coeffs(poly_x * (m_vec[1+r]/m_vec[1+r](0)))
-            p_u = Polynomial(ufromx_mat[1:n_max+2-2*r,1:n_max+2-2*r]*xm_norm_r)
-            push!(m0,m_vec[1+r](0)/x0 * get_pade(p_u,7-r,6-r)(u0))
+        if false
+            ### fill JSkw_mat
+            for k_pos in eachindex(k_vec)
+                k = k_vec[k_pos]
+                c_kDyn = get_c_k(k,c_iipDyn_mat_subst,hte_lattice)
+                m_vec = get_moments_from_c_kDyn(c_kDyn)
+                m0 = Float64[]
+
+                for r in 0:r_max
+                    xm_norm_r = coeffs(poly_x * (m_vec[1+r]/m_vec[1+r](0)))
+                    p_u = Polynomial(ufromx_mat[1:n_max+2-2*r,1:n_max+2-2*r]*xm_norm_r)
+                
+                    push!(m0,m_vec[1+r](0)/x0 * get_pade(p_u,7-r,6-r)(u0))
+                end
+            
+                δ_vec,r_vec = fromMomentsToδ(m0)
+                δ_vec_ext = extrapolate_δvec(δ_vec,length(δ_vec)-1,length(δ_vec)-1,2000,true)
+                JSkw_mat[k_pos,:] = [JS(δ_vec_ext,1.0*x0,w,0.02) for w in w_vec]
+
+                #=
+                ### exact extraplotation to r->infinity 
+                # find last index where δ_vec is non-negative
+                idx = findfirst(<(0), δ_vec)
+                lastidx = isnothing(idx) ? length(δ_vec) : idx - 1
+                r_max_eff = min(lastidx - 1, r_max)
+                r_min_eff = min(r_min, r_max_eff)
+
+                if r_max_eff < 1
+                    println("WARNING: negative δ1, putting δ0 = 0")
+                    extrap_params = [1.0,0.0]
+                    δ_vec = [0.0,1.0]
+                    r_max_eff = 0
+                else
+                    extrap_params = get_extrapolation_params(δ_vec[1:r_max_eff+1],r_min_eff,r_max_eff,intercept0)
+                end
+                
+                JSkw_mat[k_pos,:] = [JSwithTerminator(δ_vec[1:r_max_eff+1],x,w,extrap_params) for w in w_vec] 
+                =#
+            end
         end
-        
-        δ_vec,r_vec = fromMomentsToδ(m0)
-        δ_vec_ext = extrapolate_δvec(δ_vec,length(δ_vec)-1,length(δ_vec)-1,2000,true)
-        JSkw_mat[k_pos,:] = [JS(δ_vec_ext,1.0*x0,w,0.02) for w in w_vec]
+
+        if true
+            JSkw_mat = get_JSkw_mat_neu("u_pade",x0,k_vec,w_vec,c_iipDyn_mat_subst,hte_lattice)
+        end
     end
-    #push!(k_pihalf,JSkw_mat[1,:]) #[1, 14, 32, 45, 58, 76]
-    end
-    #end
 end
 
 ###### plot JS(k,ω)
-if false
+if true
     using CairoMakie
 
     fig = Figure(fontsize=8,size=(aps_width,0.6*aps_width));
@@ -213,42 +237,163 @@ if false
     resize_to_layout!(fig);
     display(fig)
 
-    #save("Images/$(lattice_type)_JSkw_a_$(a).png",fig; px_per_unit=6.0)
+    #save("Images/$(lattice_type)_JSkw_a_$(a)_x_$(x).png",fig; px_per_unit=6.0)
 end
 
 ###### plot w slice
 if false
-    slice = 81  #[1,21,41,81]
-    wslice = w_vec[slice]
+    slice = ceil(Int, sc/0.025)+1  #[1,21,41,81]
+    wslice = w_vec[slice]./sc
     #println(wslice)
     fig = Figure(fontsize=8,size=(aps_width,0.6*aps_width));
     ax=Axis(fig[1,1],xlabel=L"\mathbf{k}",ylabel=L"JS(k,\omega)",xlabelsize=8,ylabelsize=8, title="$(lattice_type), w=$(wslice)");
     lines!(ax,collect(0:Nk) ./ Nk,JSkw_mat[:,slice].*sc)
     ax.xticks = ((kticks_positioins .- 1) ./ Nk,pathticks)
     display(fig)
-    save("Images/$(lattice_type)_wslice_$(wslice).png",fig; px_per_unit=6.0)
+    save("Images/$(lattice_type)_wslice_$(wslice)_a_$(a).png",fig; px_per_unit=6.0)
 end
 
 ###### plot k slice
 if false
-    slice = 8  #[1, 14, 32, 45, 58, 76]
+    slice = 32  #[1, 14, 32, 45, 58, 76]
     kslice = k_vec[slice]
     #println(kslice)
     fig = Figure(fontsize=8,size=(aps_width,0.6*aps_width));
     ax=Axis(fig[1,1],xlabel=L"\omega/J",ylabel=L"JS(k,\omega)",xlabelsize=8,ylabelsize=8, title="$(lattice_type), k=$(kslice)");
     lines!(ax,w_vec./sc,JSkw_mat[slice,:].*sc)
     display(fig)
-    #save("Images/$(lattice_type)_wslice_$(kslice).png",fig; px_per_unit=6.0)
+    #save("Images/$(lattice_type)_kslice_($(round(kslice[1],digits=2)),$(round(kslice[2],digits=2)))_a_$(a)_x_$(x).png",fig; px_per_unit=6.0)
+    
+    open("JSkw_kslice_($(round(kslice[1],digits=2)),$(round(kslice[2],digits=2)))_a_$(a)_x_$(x).txt", "a") do io
+        writedlm(io, JSkw_mat[slice,:].*sc)
+    end
+    
+end
+
+###### plot T-broadening
+if false
+    using CairoMakie
+
+    a = 4.0 # J_2/J_1
+    b = 0.0
+    c = 0.0
+    sc = sqrt(1+a^2+b^2+c^2) # scale to w/J and JS
+    w_vec = collect(0.0:0.025:5.5) #5.5
+    kslice = (pi/2,pi/2)  # (pi/2,pi/2)
+
+    fig = Figure()
+    ax = Axis(fig[1,1], xlabel=L"\omega/J", ylabel=L"JS(\mathbf{k},ω)")
+    lines!(ax, [NaN], [NaN], label = "J1/J2 = $(round(1/a, digits=2)), k=(π/2,π/2)", color = :transparent)
+    
+    data = readdlm("JSkw_kslice_($(round(kslice[1],digits=2)),$(round(kslice[2],digits=2)))_a_$(a)_x_4.0.txt")
+    peak_index = argmax(data)
+    peak_ω = w_vec[peak_index]/sc
+
+    # Add a vertical dashed line
+    vlines!(ax, [peak_ω], color = :black, linestyle = :dash, label="Δ/J=$(round(peak_ω,digits=2))")
+
+    for i in [1.0,2.0,2.5,3.0,4.0]
+        data = readdlm("JSkw_kslice_($(round(kslice[1],digits=2)),$(round(kslice[2],digits=2)))_a_$(a)_x_$(i).txt")  # (pihalf,pihalf) Images/DSF/$(lattice_type)/T-broadening/(pihalf,pihalf)/
+        lines!(ax, w_vec./sc, data[:,1], label = "T/Δ=$(round(1/i*1/peak_ω,digits=2))")
+    end
+    
+    axislegend(ax; position = :lt, labelsize = 14)
+    display(fig)
+    save("Images/$(lattice_type)_kslices_($(round(kslice[1],digits=2)),$(round(kslice[2],digits=2)))_a_$(a).png",fig; px_per_unit=6.0)
 end
 
 ###### plot k slice for different a
 if false
-    a_vec = 1 ./ [0.5,0.8,1.0]
-    w_vec = collect(0.0:0.025:3.5)
+    a_vec = 1 ./ [0.25,0.5,0.63]
+    w_vec = collect(0.0:0.025:4.5)
     plt = Plots.plot(xlabel=L"\omega/J",ylabel=L"JS(k,\omega)",legend=:topleft)
     for i in 1:length(k_pihalf)
-    Plots.plot!(plt,w_vec./sc,k_pihalf[i].*sc,label=L"J_2/J_1="*string(a_vec[i])*", "*L"k=(\pi/2,\pi/2)")
+        sc = sqrt(1+(a_vec[i])^2)
+        Plots.plot!(plt,w_vec./sc,k_pihalf[i].*sc,label=L"J_2/J_1="*string(a_vec[i])*", "*L"k=(\pi/2,\pi/2)")
     end
     display(plt)
-    #savefig(plt,"Images/Shastry-Sutherland_(pihalf,pihalf).png")
+    savefig(plt,"Images/Shastry-Sutherland_(pi,pi).png")
+end
+
+####### Exact dimer
+function DSF_single_dimer(w::Float64,k::Float64,x::Float64)::Float64
+    if isapprox(w,1;atol=0.025)
+        return (exp(x*w)*sin(k/2)^2)/(3+exp(x*w))
+    else
+        return 0
+    end
+end
+
+function get_J2_partner(g::SimpleWeightedGraph, i, J2_value)
+    for nb in neighbors(g, i)
+        if isapprox(SimpleWeightedGraphs.weights(g)[i, nb], J2_value; atol=1e-6)
+            return nb
+        end
+    end
+    #println("$(i): No J2 neighbors found")
+    return nothing  # should not happen if exactly one J2 bond per site
+end
+
+function DSF_dimer(w::Float64,k::Tuple{Float64, Float64},x::Float64)::Float64
+    lattice = hte_lattice.lattice
+    center_sites = hte_lattice.basis_positions
+    g = hte_lattice.graph
+    z = 0
+    for b in 1:length(center_sites)
+        for i in 1:length(lattice)
+            partner = get_J2_partner(g, i, 2)
+            if partner === nothing
+                continue
+            end
+            kdotr = dot(k,getSitePosition(lattice,partner).-getSitePosition(lattice,i))
+            z += DSF_single_dimer(w,kdotr,x)  #cos(dot(k,getSitePosition(lattice,i).-getSitePosition(lattice,center_sites[b]))) * 
+        end
+    end
+    return z / (2*length(center_sites)*length(lattice))
+end
+
+if false
+    w_vec = collect(0.0:0.025:2.5) #3.5
+
+    x0 = 4.0  # J/T
+
+    ### define and generate k-path 
+    path = [(pi/2,pi/2),(pi,0),(pi,pi),(pi/2,pi/2),(0.001,0.001),(pi,0)]
+    pathticks = ["(π/2,π/2)","(π,0)","(π,π)","(π/2,π/2)","(0,0)","(π,0)"]
+
+    Nk = 75
+    k_vec,kticks_positioins = create_brillouin_zone_path(path, Nk)
+
+    JSkw_mat = zeros(Nk+1,length(w_vec))
+    for k_pos in eachindex(k_vec)
+        k = k_vec[k_pos]
+        JSkw_mat[k_pos,:] = [DSF_dimer(w,k,x0) for w in w_vec]
+    end
+end
+
+###### plot
+if false
+    fig = Figure(fontsize=8,size=(aps_width,0.6*aps_width));
+    ax=Axis(fig[1,1],xlabel=L"\mathbf{k}",ylabel=L"\omega/J=w",xlabelsize=8,ylabelsize=8);
+    hm=CairoMakie.heatmap!(ax,collect(0:Nk)/(Nk),w_vec, JSkw_mat,colormap=:viridis,colorrange=(0.001,0.4),highclip=:white);
+    ax.xticks = ((kticks_positioins .- 1)/(Nk),pathticks)
+    CairoMakie.Colorbar(fig[:, end+1], hm,size=8, label = L"J S(\mathbf{k},\omega)")
+    CairoMakie.text!(ax,"x=J/T="*string(x0),position=[(0.05,0.2)],color=:white)
+
+    resize_to_layout!(fig);
+    display(fig)
+    save("Images/$(lattice_type)_dimer.png",fig; px_per_unit=6.0)
+end
+
+###### plot w slice
+if false
+    slice = 41  #[1,21,41,81]
+    wslice = w_vec[slice]
+    #println(wslice)
+    fig = Figure(fontsize=8,size=(aps_width,0.6*aps_width));
+    ax=Axis(fig[1,1],xlabel=L"\mathbf{k}",ylabel=L"JS(k,\omega)",xlabelsize=8,ylabelsize=8, title="$(lattice_type), w=$(wslice)");
+    lines!(ax,collect(0:Nk) ./ Nk,JSkw_mat[:,slice])
+    ax.xticks = ((kticks_positioins .- 1) ./ Nk,pathticks)
+    display(fig)
+    save("Images/$(lattice_type)_dimer_wslice_$(wslice).png",fig; px_per_unit=6.0)
 end

@@ -10,15 +10,15 @@ spin_length = 1/2
 n_max = 12
 
 ### prepare lattice
-lattice_type = "dimer" #"chain"
+lattice_type = "chain"
 
 # Are there J1, J2, J3, J4 interactions?
 j1 = true
-j2 = false
+j2 = true
 j3 = false
 j4 = false
 
-L = 1
+L = 12
 
 hte_lattice = getLattice(L,lattice_type,j1,j2,j3,j4);
 
@@ -176,11 +176,11 @@ if true
 ###SPIN STRUCTURE FACTOR HEATMAPS
 using CairoMakie
 x = 2.0                #define temperature (x=J/T)
-a = 0.0                #define J2/J1
+a = 0.45                #define J2/J1
 b = 0.0                #define J3/J1
 c = 0.0                #define J4/J1
 
-f = 0.51                 # a=0.0->f=0.48, a=0.2->f=0.4, a=0.4->f=0.58, a=0.45->f=0.6, a=0.7-> f=0.65, a=1.0->f=0.35 fits best for x in {0,2,4}
+f = 0.6                 # a=0.0->f=0.48, a=0.2->f=0.4, a=0.4->f=0.58, a=0.45->f=0.6, a=0.7-> f=0.65, a=1.0->f=0.35 fits best for x in {0,2,4}
                         # a=0.0->f=0.48, a=0.2->f=0.2, a=0.4->f=0.58, a=0.45->f=0.65, a=0.7-> f=0.25, a=1.0->f=0.4 fits best for x=4
 
 k_step_size = 1/41     #define k step size (in 1/π)
@@ -203,7 +203,7 @@ end
 #println(get_TGiip_Matsubara_xpoly(c_iipDyn_mat_subst, 1, 2, 0)) #test if substitution worked
 
 #calculate the spin structure factor for the given k and ω 
-JSkw_mat = get_JSkw_mat("u_pade",x,k_vec,w_vec,c_iipDyn_mat_subst,hte_lattice,r_min=3,r_max=3,r_ext=1000,f=f)
+JSkw_mat = get_JSkw_mat_neu("u_pade",x,k_vec,w_vec,c_iipDyn_mat_subst,hte_lattice,r_min=3,r_max=3,r_ext=1000,f=f)
 end
 
 ###### plot DSF

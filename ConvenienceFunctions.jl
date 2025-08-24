@@ -1,5 +1,6 @@
 using Symbolics, RobustPade, Polynomials, DifferentialEquations, LsqFit, TaylorSeries
-#using DynamicPolynomials
+import HypergeometricFunctions.pFq
+import SpecialFunctions.gamma
 
 """ create strings "S1half", "S1", "S3half",... dependening on rational spin_length"""
 function create_spin_string(s)
@@ -87,6 +88,7 @@ function get_c_iipDyn_mat(hte_lattice::Dyn_HTE_Lattice, hte_graphs::Vector{Vecto
     return GiipDyn_mat
 end
 
+###### GraphG
 """ perform frequency sum over real-space dynamic correlators to obtain equal time correlators """
 function get_c_iipEqualTime_mat(c_iipDyn_mat::Matrix{Vector{Vector{Tuple{Vector{Int64}, Vector{Rational{Int128}}}}}})::Array{Vector{Vector{Tuple{Vector{Int64}, Vector{Rational{Int128}}}}}}
     max_order_plus1 = size(c_iipDyn_mat[1,1])[1]
@@ -105,6 +107,18 @@ function get_c_iipEqualTime_mat(c_iipDyn_mat::Matrix{Vector{Vector{Tuple{Vector{
     return c_iipEqualTime_mat
 end
 
+""" perform frequency sum over real-space dynamic correlators to obtain equal time correlators """
+function get_c_iipEqualTime_mat(c_iipDyn_mat::Matrix{Matrix{Float64}})::Array{Vector{Float64}}
+    max_order_plus1 = size(c_iipDyn_mat[1,1])[1]
+    c_iipEqualTime_mat = Array{Vector{Float64}}(undef, length(c_iipDyn_mat[:,1]), length(c_iipDyn_mat[1,:]))
+    for j in eachindex(c_iipDyn_mat[:,1])
+        for b in eachindex(c_iipDyn_mat[1,:])
+            c_iipEqualTime_mat[j,b] = [sum(c_iipDyn_mat[j,b][n,:] .* [1/1,1/12,1/720,1/30240,1/1209600,1/47900160,691/1307674368000,1/74724249600,3617/10670622842880000,43867/5109094217170944000]) for n in 1:max_order_plus1]
+        end
+    end
+    return c_iipEqualTime_mat
+end
+
 ###### bare series polynomial in Gii'(x,m) at Matsubara integer m truncated at n 
 """ expansion of the Matsubara correlator TGii'(iνm) as x-Polyomial for spatial entries i,ip of c_iipDyn_mat"""
 function get_TGiip_Matsubara_xpoly(c_iipDyn_mat::Array{Matrix{Float64}},i::Int,ip::Int,m::Int)
@@ -116,6 +130,8 @@ function get_TGiip_Matsubara_xpoly(c_iipDyn_mat::Array{Matrix{Float64}},i::Int,i
     end
     return p_x
 end
+
+###### GraphG
 function get_TGiip_Matsubara_xpoly(c_iipDyn_mat::Matrix{Vector{Vector{Tuple{Vector{Int64}, Vector{Rational{Int128}}}}}},i::Int,ip::Int,m::Int)
     @variables x, Δ, x1, x2, x3, x4
     Js = (x1, x2, x3, x4)
@@ -583,6 +599,16 @@ function contFrac(s::Number,δ_vec::Vector{Float64})::Number
     end
 end
 
+function contFracwithTerminator(s::Number,δ_vec::Vector{Float64},a::Float64,b::Float64)::Number
+    
+    if length(δ_vec)==1
+        return  δ_vec[1]*ContFracTerminator(s,a,b)
+    else
+        return δ_vec[1]/(s+contFracwithTerminator(s,δ_vec[2:end],a,b))
+    end
+end
+
+
 """ extrapolate continued fraction parameters δ_vec=[δ[0],δ[1],...,δ[R]] 
     using a linear interpolation for δ_vec[r_min] to δ[r_max]
     extrapolate δ[r_max+1]...δ[r_ext]. 
@@ -605,6 +631,45 @@ function extrapolate_δvec(δ_vec::Vector{Float64},r_min::Int,r_max::Int,r_ext::
     end
 end
 
+function get_extrapolation_params(δ_vec::Vector{Float64},r_min::Int,r_max::Int,intercept0::Bool)
+    @assert r_max >= r_min
+    @assert r_max+1 <= length(δ_vec)
+    ### define linear fit-function, fit and extrapolate
+    if intercept0 
+        function fa(t,p) return p[1] .* t end  
+        p0 = [1.0]
+        fit = LsqFit.curve_fit(fa, r_min:r_max, δ_vec[r_min+1:r_max+1], p0)
+        return [fit.param[1],0.0]  # return slope and intercept
+    else 
+        function fab(t,p) return p[1] .* t .+ p[2] end
+        p0 = [1.0,0.0]
+        fit = LsqFit.curve_fit(fab, r_min:r_max, δ_vec[r_min+1:r_max+1], p0)
+        return fit.param # return slope and intercept
+    end
+end
+
+function hermiteH(ν::Real, z::Number)
+    # promote to a common complex type
+    T = Base.promote_type(typeof(ν + zero(ν)), typeof(z + zero(z)))
+    νT = complex(T(ν))
+    zT = complex(T(z))
+
+    a1, b1 = -νT/2, T(1)/2
+    a2, b2 = T(1)/2 - νT/2, T(3)/2
+
+    #Factoring out exponential term
+    M1 = #= exp(zT^2)* =#pFq((b1-a1,), (b1,), -zT^2)          # 1F1(-ν/2; 1/2; z^2)
+    M2 = #= exp(zT^2)* =#pFq((b2-a2,), (b2,), -zT^2)          # 1F1(1/2 - ν/2; 3/2; z^2)
+
+    return sqrt(pi)  *  #= (2^νT) *  =#( M1 / gamma((1 - ν)/2) - (2*zT) * M2 / gamma(-ν/2) )
+end
+
+function ContFracTerminator(z::Number,a::Real, b::Real)
+     σ = a
+     c = b
+    return 1/2* sqrt(2/σ) * hermiteH(-(σ + c)/σ, z / sqrt(2*σ)) / hermiteH(-c/σ, z / sqrt(2*σ))
+end
+
 """ get dynamical spin structure factor (times J) from δ_wec at w=ω/J and broadening η"""
 function JS(δ_vec::Vector{Float64},x::Float64,w::Float64,η::Float64)::Float64
     res = 1/π * real(contFrac(1im * w + η,δ_vec))
@@ -613,7 +678,103 @@ function JS(δ_vec::Vector{Float64},x::Float64,w::Float64,η::Float64)::Float64
     else
         return  x * w * 1/ (1 - exp(-x * w)) * res
     end
+end
+
+function JSwithTerminator(δ_vec::Vector{Float64},x::Float64,w::Float64,extrap_params::Vector{Float64})::Float64
+    a = extrap_params[1]
+    b = extrap_params[2] + (length(δ_vec)-1)*a 
+    if a < 0.0
+        println("Slope of δ extrapolation must be non-negative")
+        #throw(ErrorException("Slope of δ extrapolation must be non-negative"))
+        a = abs(a)
+    end
+
+    res = 1/π * real(contFracwithTerminator(1im * w ,δ_vec,a,b))
+    if x==0.0 || w==0.0
+        return res
+    else
+        return  x * w * 1/ (1 - exp(-x * w)) * res
+    end
 end 
+
+function get_JSkw_mat_neu(method::String,x::Float64,k_vec::Vector,w_vec::Vector{Float64},c_iipDyn_mat::Array{Matrix{Float64}},lattice::Dyn_HTE_Lattice;f::Float64=0.48,η::Float64=0.01,r_min::Int=3,r_max::Int=3,r_ext::Int=1000,intercept0::Bool=true)
+
+    JSkw_mat = 1.0*zeros(length(k_vec),length(w_vec))
+
+    #pre-calculate the substitution matrix
+    if method== "u_pade"
+        substitution_matrix_arr = []
+        for m_idx=1:6
+            push!(substitution_matrix_arr, get_LinearTrafoToCoeffs_u(n_max+3-2*m_idx,f)) #15
+        end
+    end
+
+
+    for (k_pos,k) in enumerate(k_vec)
+        println(k_pos,"/",length(k_vec))
+        c_kDyn_mat = get_c_k([k],c_iipDyn_mat,lattice)[1]
+        m_vec = get_moments_from_c_kDyn(c_kDyn_mat) #[1:7]
+
+        ###pade in x=J/T 
+        if method=="pade"
+            m_vec_extrapolated_pade = []
+            for m_idx=1:length(m_vec)
+                push!(m_vec_extrapolated_pade, get_pade(m_vec[m_idx],7-m_idx,7-m_idx))
+            end
+            δ_vec,r_vec = fromMomentsToδ([m(x) for m in m_vec_extrapolated_pade])
+        
+        end
+
+
+
+        ##pade with u=tanh(f*x) substitution
+        if method == "u_pade"
+            #if x= 0 we have to be careful with the substitution but case is trivial
+            if x == 0
+                m_vec_extrapolated_pade = []
+                for m_idx=1:length(m_vec)
+                    push!(m_vec_extrapolated_pade, get_pade(m_vec[m_idx],7-m_idx,7-m_idx))
+                end
+                δ_vec,r_vec = fromMomentsToδ([m(x) for m in m_vec_extrapolated_pade])
+            else
+
+                m_vec_times_x =[m_vec[i]*Polynomial([0,1]) for i=1:length(m_vec)]
+                m_vec_extrapolated_pade = []
+
+
+                for m_idx=1:length(m_vec)-1
+                    p_u = Polynomial(substitution_matrix_arr[m_idx]*coeffs(m_vec_times_x[m_idx]))
+                    push!(m_vec_extrapolated_pade, get_pade(p_u,8-m_idx,7-m_idx))
+                end
+                
+                δ_vec,r_vec = fromMomentsToδ([m(tanh(f*x))/x for m in m_vec_extrapolated_pade])
+            end
+        end
+
+
+        ### exact extraplotation to r->infinity 
+
+       
+       # find last index where δ_vec is non-negative
+        idx = findfirst(<(0), δ_vec)
+        lastidx = isnothing(idx) ? length(δ_vec) : idx - 1
+        r_max_eff = min(lastidx - 1, r_max)
+        r_min_eff = min(r_min, r_max_eff)
+
+        if r_max_eff < 1
+            println("WARNING: negative δ1, putting δ0 = 0")
+            extrap_params = [1.0,0.0]
+            δ_vec = [0.0,1.0]
+            r_max_eff = 0
+        else
+            extrap_params = get_extrapolation_params(δ_vec[1:r_max_eff+1],r_min_eff,r_max_eff,intercept0)
+        end
+        
+        JSkw_mat[k_pos,:] = [JSwithTerminator(δ_vec[1:r_max_eff+1],x,w,extrap_params) for w in w_vec]
+    end
+
+    return JSkw_mat
+end
 
 
 """ get the dynamical spin structure factor from the correlation matrix c_iipDyn_mat 

@@ -11,7 +11,7 @@ thermalCol13_vec = reverse(ColorSchemes.thermal[1:20:end])
 marker_vec = [:dot,:cross,:diamond,:dtriangle,:square,:star4,:utriangle]
 linestyle_vec = [:solid, :dash, :dot, :dashdot, :solid, :dash, :dot, :dashdot]
 
-plt_empty = plot([0,0],[0,0],label="")
+plt_empty = Plots.plot([0,0],[0,0],label="")
 
 function addABC(plt,label);
     """ adds "label" on the top left of plot axes """

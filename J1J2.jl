@@ -11,18 +11,18 @@ include("ConvenienceFunctions.jl")
 
 ### load graph evaluations
 spin_length = 1/2
-n_max = 12
+n_max = 6
 
 ### prepare lattice
-lattice_type = "cluster4" #"Shastry-Sutherland"
+lattice_type = "simple_cubic" #"Shastry-Sutherland"
 
 # Are there J1, J2, J3, J4 interactions?
 j1 = true
-j2 = false
+j2 = true
 j3 = false
 j4 = false
 
-L = 1
+L = 6
 
 hte_lattice = getLattice(L,lattice_type,j1,j2,j3,j4);
 
@@ -44,7 +44,7 @@ if false
     else
         hte_graphs, C_Dict_vec = getGraphsG(spin_length,n_max)
         c_iipDyn_mat = get_c_iipDyn_mat(hte_lattice,hte_graphs,C_Dict_vec);
-        #save_object(fileName_c,c_iipDyn_mat)
+        save_object(fileName_c,c_iipDyn_mat)
     end
 end
 
@@ -64,14 +64,14 @@ end
 #println("uniform susceptibility (x2=0) = $(expr_sub)")
 
 if false
-a = 0.5 #J/J_D
-f_num = subvalue(result_suscept,1/a)
-xs1 = range(0.1, 2, length=200)
-xs2 = range(0.1, 10, length=200)
+a = 0.2 #J2/J1
+f_num = subvalue(result_suscept,a)
+xs1 = range(0.5, 2, length=200)
+xs2 = range(0.5, 10, length=200)
 ys = [f_num(x) for x in xs1]
 y_pade = robustpade(f_num,6,6).(xs2)
 
-Plots.plot(1 ./ xs1, ys, xlabel=L"T/J", ylabel="χ", title=L"J/J_D="*string(a), label="x-Series")
+Plots.plot(1 ./ xs1, ys, xlabel=L"T/J", ylabel="χ", title=L"J_2/J_1="*string(a), label="x-Series")
 #Plots.plot!(1 ./ xs2, y_pade, color="orange", linestyle=:dash, alpha=0.7, label="Pade")
 display(current())
 end
@@ -91,6 +91,8 @@ if true
     #a = a_vec[i]
     b = 0.0
     c = 0.0
+
+    sc = sqrt(1+a^2+b^2+c^2) # scale to w/J and JS
     
     fileName_c = "CaseStudy/$(lattice_type)_" * create_spin_string(spin_length) * "_c_iipDyn_nmax" * string(n_max) * "_L" * string(L) * "_a_$(a)_b_$(b)_c_$(c).jld2"
     if isfile(fileName_c)
@@ -149,19 +151,23 @@ if true
         display(plt_m)
     end
     if true
-    w_vec = collect(0.0:0.025:4.5) #3.5
-    r_max = 3                
-    f = 0.5  #a=0.0-->f=0.7,a=1.0-->f=,a=1.25-->f=0.7,a=2.0-->f=0.5?
+    w_vec = collect(0.0:0.025:3.5) #3.5
+    r_max = 2                
+    f = 0.2  #a=0.0-->f=0.7,a=1.0-->f=,a=1.25-->f=0.7,a=2.0-->f=0.5?
     #f = f_vec[i]
     ufromx_mat = get_LinearTrafoToCoeffs_u(n_max+1,f)
     poly_x = Polynomial([0,1],:x)
 
-    x0 = 2.0
+    x = 2.0  # J/T
+    x0 = x/sc  # J1/T
     u0 = tanh.(f .* x0)
 
     ### define and generate k-path 
-    path = [(pi/2,pi/2),(pi,0),(pi,pi),(pi/2,pi/2),(0.001,0.001),(pi,0)]
-    pathticks = ["(π/2,π/2)","(π,0)","(π,π)","(π/2,π/2)","(0,0)","(π,0)"]
+    #path = [(pi/2,pi/2),(pi,0),(pi,pi),(pi/2,pi/2),(0.001,0.001),(pi,0)]
+    #pathticks = ["(π/2,π/2)","(π,0)","(π,π)","(π/2,π/2)","(0,0)","(π,0)"]
+
+    path = [(0.001,0.001,0.001),(pi,0.001,0.001),(pi,pi,0.001),(pi,pi,pi),(pi/2,pi/2,pi/2),(0.001,0.001,0.001)]
+    pathticks = ["(0,0,0)","(π,0,0)","(π,π,0)","(π,π,π)","(π/2,π/2,π/2)","(0,0,0)"]
 
     Nk = 75  #75
     k_vec,kticks_positioins = create_brillouin_zone_path(path, Nk)
@@ -195,13 +201,13 @@ if false
     using CairoMakie
 
     fig = Figure(fontsize=8,size=(aps_width,0.6*aps_width));
-    ax=Axis(fig[1,1],xlabel=L"\mathbf{k}",ylabel=L"\omega/J_1=w",xlabelsize=8,ylabelsize=8);
-    hm=CairoMakie.heatmap!(ax,collect(0:Nk)/(Nk),w_vec, JSkw_mat,colormap=:viridis,colorrange=(0.001,0.4),highclip=:white);
+    ax=Axis(fig[1,1],xlabel=L"\mathbf{k}",ylabel=L"\omega/J=w",xlabelsize=8,ylabelsize=8);
+    hm=CairoMakie.heatmap!(ax,collect(0:Nk)/(Nk),w_vec ./ sc, JSkw_mat .* sc,colormap=:viridis,colorrange=(0.001,2.0),highclip=:white); #0.4
     ax.xticks = ((kticks_positioins .- 1)/(Nk),pathticks)
-    CairoMakie.Colorbar(fig[:, end+1], hm,size=8, label = L"J_1 S(\mathbf{k},\omega)")
-    CairoMakie.text!(ax,"x=J1/T="*string(x0),position=[(0.05,0.8)],color=:white)
-    CairoMakie.text!(ax,"J2/J1="*string(a),position=[(0.05,0.5)],color=:white)
-    CairoMakie.text!(ax,"f=$f",position=[(0.05,0.2)],color=:white)
+    CairoMakie.Colorbar(fig[:, end+1], hm,size=8, label = L"J S(\mathbf{k},\omega)")
+    CairoMakie.text!(ax,"x=J/T="*string(x),position=[(0.05,0.8/sc)],color=:white)
+    CairoMakie.text!(ax,"J2/J1="*string(a),position=[(0.05,0.5/sc)],color=:white)
+    CairoMakie.text!(ax,"f=$f",position=[(0.05,0.2/sc)],color=:white)
 
     resize_to_layout!(fig);
     display(fig)
@@ -215,8 +221,8 @@ if false
     wslice = w_vec[slice]
     #println(wslice)
     fig = Figure(fontsize=8,size=(aps_width,0.6*aps_width));
-    ax=Axis(fig[1,1],xlabel=L"\mathbf{k}",ylabel=L"J_1S(k,\omega)",xlabelsize=8,ylabelsize=8, title="$(lattice_type), w=$(wslice)");
-    lines!(ax,collect(0:Nk) ./ Nk,JSkw_mat[:,slice])
+    ax=Axis(fig[1,1],xlabel=L"\mathbf{k}",ylabel=L"JS(k,\omega)",xlabelsize=8,ylabelsize=8, title="$(lattice_type), w=$(wslice)");
+    lines!(ax,collect(0:Nk) ./ Nk,JSkw_mat[:,slice].*sc)
     ax.xticks = ((kticks_positioins .- 1) ./ Nk,pathticks)
     display(fig)
     save("Images/$(lattice_type)_wslice_$(wslice).png",fig; px_per_unit=6.0)
@@ -224,12 +230,12 @@ end
 
 ###### plot k slice
 if false
-    slice = 8  #[1, 14, 32, 45, 58, 76]
+    slice = 40  #[1, 14, 32, 45, 58, 76]
     kslice = k_vec[slice]
     #println(kslice)
     fig = Figure(fontsize=8,size=(aps_width,0.6*aps_width));
-    ax=Axis(fig[1,1],xlabel=L"\omega",ylabel=L"J_1S(k,\omega)",xlabelsize=8,ylabelsize=8, title="$(lattice_type), k=$(kslice)");
-    lines!(ax,w_vec,JSkw_mat[slice,:])
+    ax=Axis(fig[1,1],xlabel=L"\omega/J",ylabel=L"JS(k,\omega)",xlabelsize=8,ylabelsize=8, title="$(lattice_type), k=$(kslice)");
+    lines!(ax,w_vec./sc,JSkw_mat[slice,:].*sc)
     display(fig)
     #save("Images/$(lattice_type)_wslice_$(kslice).png",fig; px_per_unit=6.0)
 end
@@ -238,9 +244,9 @@ end
 if false
     a_vec = 1 ./ [0.5,0.8,1.0]
     w_vec = collect(0.0:0.025:3.5)
-    plt = Plots.plot(xlabel=L"\omega/J_1",ylabel=L"J_1S(k,\omega)",legend=:topleft)
+    plt = Plots.plot(xlabel=L"\omega/J",ylabel=L"JS(k,\omega)",legend=:topleft)
     for i in 1:length(k_pihalf)
-    Plots.plot!(plt,w_vec,k_pihalf[i],label=L"J_2/J_1="*string(a_vec[i])*", "*L"k=(\pi/2,\pi/2)")
+    Plots.plot!(plt,w_vec./sc,k_pihalf[i].*sc,label=L"J_2/J_1="*string(a_vec[i])*", "*L"k=(\pi/2,\pi/2)")
     end
     display(plt)
     #savefig(plt,"Images/Shastry-Sutherland_(pihalf,pihalf).png")
