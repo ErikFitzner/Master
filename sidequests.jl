@@ -33,35 +33,35 @@ if false
 end
 
 ###### various checks for c_iipDyn_mat
-if false
+if true
     spin_length = 1/2
-    n_max = 1
+    n_max = 4
 
-    lattice_type1 = "simple_cubic"
-    #lattice_type2 = "Shastry-Sutherland"
+    lattice_type1 = "bcc" #"Shastry-Sutherland"
+    lattice_type2 = "bcc"
 
     j1 = true
     j2 = true
     j3 = false
     j4 = false
 
-    L = 2
+    L = 4
 
     hte_lattice1 = getLattice(L,lattice_type1,j1,j2,j3,j4);
-    #hte_lattice2 = getLattice(L,lattice_type2,j1,j2,j3,j4);
+    hte_lattice2 = getLattice(L,lattice_type2,j1,j2,j3,j4);
 
-    println(length(hte_lattice1.lattice.sitePositions))
+    #println(length(hte_lattice1.lattice.sitePositions))
     #println(hte_lattice2.lattice.sitePositions[hte_lattice2.basis_positions[4]])
     #println(hte_lattice2.lattice.sitePositions[31])
     #println(hte_lattice2.basis_positions)
     
-    #fileName1 = "CaseStudy/Shastry-Sutherland_" * create_spin_string(spin_length) * "_c_iipDyn_nmax" * string(n_max) * "_L" * string(L) * "_J1_$(1*j1)_J2_$(1*j2)_J3_$(1*j3)_J4_$(1*j4).jld2"
+    fileName1 = "CaseStudy/$(lattice_type1)_" * create_spin_string(spin_length) * "_c_iipDyn_nmax" * string(n_max) * "_L" * string(L) * "_J1_$(1*j1)_J2_$(1*j2)_J3_$(1*j3)_J4_$(1*j4).jld2"
     #fileName1 = "CaseStudy/Shastry-Sutherland_" * create_spin_string(spin_length) * "_c_iipDyn_nmax" * string(n_max) * "_L" * string(L) * "_a_$(0.0)_b_$(0.0)_c_$(0.0).jld2"
-    #fileName2 = "CaseStudy/Shastry-Sutherland_" * create_spin_string(spin_length) * "_c_iipDyn_nmax" * string(n_max) * "_L" * string(L) * "_J1_$(1*j1)_J2_$(1*j2)_J3_$(1*j3)_J4_$(1*j4).jld2"
+    fileName2 = "CaseStudy/$(lattice_type2)_" * create_spin_string(spin_length) * "_c_iipDyn_nmax" * string(n_max) * "_L" * string(L) * "_J1_$(1*j1)_J2_$(1*j2)_J3_$(1*j3)_J4_$(1*j4)_2.jld2"
     #fileName2 = "CaseStudy/Shastry-Sutherland_" * create_spin_string(spin_length) * "_c_iipDyn_nmax" * string(n_max) * "_L" * string(L) * "_a_$(0.0)_b_$(0.0)_c_$(0.0).jld2"
     
-    #c_iipDyn_mat1 = load_object(fileName1)
-    #c_iipDyn_mat2 = load_object(fileName2)
+    c_iipDyn_mat1 = load_object(fileName1)
+    c_iipDyn_mat2 = load_object(fileName2)
 
     #=
     for i in eachindex(c_iipDyn_mat1)

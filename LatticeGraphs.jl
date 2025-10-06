@@ -94,6 +94,7 @@ function get_finite_Lattice(L::Int,geometry::String, j1::Bool, j2::Bool, j3::Boo
         addInteraction!(uc, b0, b0, M2, (1, 1))
         addInteraction!(uc, b0, b0, M2, (-1, 1))
 
+        #=
         # Third neighbors (J3, along axes, distance 2)
         addInteraction!(uc, b0, b0, M3, (2, 0))
         addInteraction!(uc, b0, b0, M3, (0, 2))
@@ -103,6 +104,7 @@ function get_finite_Lattice(L::Int,geometry::String, j1::Bool, j2::Bool, j3::Boo
         addInteraction!(uc, b0, b0, M4, (1, 2))
         addInteraction!(uc, b0, b0, M4, (-2, 1))
         addInteraction!(uc, b0, b0, M4, (-1, 2))
+        =#
 
         l = (L, L)
 
@@ -139,7 +141,7 @@ function get_finite_Lattice(L::Int,geometry::String, j1::Bool, j2::Bool, j3::Boo
 
 
     elseif geometry == "Shastry-Sutherland2"
-        #=
+        
         a1 = (-sqrt(2), sqrt(2))
         a2 = (sqrt(2), sqrt(2))
         uc = UnitCell(a1, a2)
@@ -150,8 +152,9 @@ function get_finite_Lattice(L::Int,geometry::String, j1::Bool, j2::Bool, j3::Boo
         b1 = addBasisSite!(uc, (sqrt(2)/2, sqrt(2)/2))
         b2 = addBasisSite!(uc, (-sqrt(2)/2, sqrt(2)/2))
         b3 = addBasisSite!(uc, (0.0, sqrt(2)))
-        =#
-
+        
+        # All bonds same length 1
+        #=
         a1 = (-(1/2+sqrt(3)/2), 1/2+sqrt(3)/2)
         a2 = (1/2+sqrt(3)/2, 1/2+sqrt(3)/2)
         uc = UnitCell(a1, a2)
@@ -160,6 +163,7 @@ function get_finite_Lattice(L::Int,geometry::String, j1::Bool, j2::Bool, j3::Boo
         b1 = addBasisSite!(uc, (sqrt(3)/2, 1/2))
         b2 = addBasisSite!(uc, (-sqrt(3)/2, 1/2))
         b3 = addBasisSite!(uc, (0.0, 1.0))
+        =#
 
         # Nearest-neighbor J1 within cell
         addInteraction!(uc, b0, b1, M1, (0, 0))
@@ -207,7 +211,7 @@ function get_finite_Lattice(L::Int,geometry::String, j1::Bool, j2::Bool, j3::Boo
         # Lattice size is just one unit cell — the cluster
         l = (1, 1)
 
-    elseif geometry == "simple_cubic" ### Square lattice
+    elseif geometry == "simple_cubic"
         a1 = (1, 0, 0)
         a2 = (0, 1 ,0)
         a3 = (0, 0, 1)
@@ -223,8 +227,31 @@ function get_finite_Lattice(L::Int,geometry::String, j1::Bool, j2::Bool, j3::Boo
         addInteraction!(uc, b0, b0, M2, (1, 0 ,1))
         addInteraction!(uc, b0, b0, M2, (0, 1, 1))
 
-        l = (L, L ,L)
+        l = (L, L, L)
 
+    elseif geometry == "bcc"
+        a1 = (1, 0, 0)
+        a2 = (0, 1 ,0)
+        a3 = (0, 0, 1)
+        uc = UnitCell(a1,a2,a3)
+
+        b0 = addBasisSite!(uc, (0.0, 0.0, 0.0))
+        b1 = addBasisSite!(uc, (1/2, 1/2, 1/2))
+
+        addInteraction!(uc, b1, b0, M1, (0, 0, 0))
+        addInteraction!(uc, b1, b0, M1, (1, 0 ,0))
+        addInteraction!(uc, b1, b0, M1, (0, 1, 0))
+        addInteraction!(uc, b1, b0, M1, (0, 0, 1))
+        addInteraction!(uc, b1, b0, M1, (1, 1 ,0))
+        addInteraction!(uc, b1, b0, M1, (1, 0, 1))
+        addInteraction!(uc, b1, b0, M1, (0, 1 ,1))
+        addInteraction!(uc, b1, b0, M1, (1, 1, 1))
+
+        addInteraction!(uc, b0, b0, M2, (1, 0, 0))
+        addInteraction!(uc, b0, b0, M2, (0, 1 ,0))
+        addInteraction!(uc, b0, b0, M2, (0, 0, 1))
+
+        l = (L, L, L)
         
     elseif geometry == "triang"  ### Triangular lattice
         a1 = (1/2, sqrt(3)/2)
@@ -403,9 +430,14 @@ function getLattice(L::Int,geometry::String, j1::Bool, j2::Bool, j3::Bool,j4::Bo
         return replaced_tuples
     end
 
+
+    ##################################################################################################################
+    # To determine the right size of the lattice: L2 = L* max_range and LatGraph_unweighted = toSimpleGraph(LatGraph)
+    ##################################################################################################################
+
     max_range = maximum([j1 ? 1 : 0, j2 ? 2 : 0, j3 ? 3 : 0, j4 ? 4 : 0])
     max_range = max(max_range, 1)
-    L2 = L * max_range
+    L2 = L * max_range  # for small J2 L2=L suffices
 
     # Get the lattice and its corresponding graph representation
     lattice, LatGraph = get_finite_Lattice(2 * L2 + 1,geometry,j1,j2,j3,j4; PBC = false)

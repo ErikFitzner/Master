@@ -192,7 +192,7 @@ function Calculate_Correlator_fast(L::SimpleWeightedGraph{Int},ext_j1::Int,ext_j
 
             # --- Symmetry logic for GraphG ---
             if is_symmetric(gg) || gg.jjp[1] == gg.jjp[2]
-                emb_fac = reduce_bond_counts(e_fast(L, ext_j1, ext_j2, gg,max_order))
+                emb_fac = reduce_bond_counts(e_fast(L, ext_j1, ext_j2, gg, max_order))
             else
                 emb_fac = reduce_bond_counts(vcat(e_fast(L, ext_j1, ext_j2, gg, max_order),e_fast(L, ext_j2, ext_j1, gg, max_order)))
             end
@@ -200,9 +200,12 @@ function Calculate_Correlator_fast(L::SimpleWeightedGraph{Int},ext_j1::Int,ext_j
             #println("($order,$idx) th graph embeding factor = $emb_fac")
 
             look_up_dict = C_Dict_vec[order+1][idx]
+            append!(result_array[order+1], (bond_counts, look_up_dict .* count * (1//symmetryFactor(gg))) for (bond_counts, count) in emb_fac)
+            #=
             for (bond_counts, count) in emb_fac
                 push!(result_array[order+1], (bond_counts, look_up_dict .* count * (1//symmetryFactor(gg))))
             end
+            =#
         end
     end
     return result_array

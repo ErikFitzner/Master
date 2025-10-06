@@ -504,8 +504,21 @@ function getSymmetryGroup(geometry::String)
 
     elseif geometry == "simple_cubic"
         a1 = (1, 0, 0)
-        a2 = (0, 1 , 0)
-        a3 = (0, 0 , 1)
+        a2 = (0, 1, 0)
+        a3 = (0, 0, 1)
+
+        C_41 = sym_element([0 1 0; -1 0 0; 0 0 1],[0,0,0])
+        C_42 = sym_element([0 0 1; 0 1 0; -1 0 0],[0,0,0])
+        Px = sym_element([-1 0 0 ; 0 1 0; 0 0 1],[0,0,0])
+
+        basis = sym_group([neutral_elem(C_41),C_41,C_42,Px])
+        translation_Group = translation_group([a1,a2,a3])
+        symmetry_Group = generate_symmetry_group(basis,translation_Group)
+
+    elseif geometry == "bcc"
+        a1 = (1, 0, 0)
+        a2 = (0, 1, 0)
+        a3 = (0, 0, 1)
 
         C_41 = sym_element([0 1 0; -1 0 0; 0 0 1],[0,0,0])
         C_42 = sym_element([0 0 1; 0 1 0; -1 0 0],[0,0,0])

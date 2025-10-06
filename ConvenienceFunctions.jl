@@ -26,7 +26,7 @@ function get_c_iipDyn_mat(Graph,basis_positions::Vector{<:Int},hte_graphs::Vecto
     max_order = min(max_order, length(C_Dict_vec)-1)
 
     ##compute correlations
-    Threads.@threads :dynamic for jp = 1:nv(Graph)
+    Threads.@threads :greedy for jp = 1:nv(Graph)  #:dynamic
         if verbose == true
             println("bond "*string(jp)*" of "*string(nv(Graph)))
         end
@@ -71,7 +71,7 @@ function get_c_iipDyn_mat(hte_lattice::Dyn_HTE_Lattice, hte_graphs::Vector{Vecto
     max_order = min(max_order,length(C_Dict_vec)-1)
 
     #calculate correlators
-    Threads.@threads for i in reverse(eachindex(bond_vec_red))
+    Threads.@threads :greedy for i in reverse(eachindex(bond_vec_red))  #:dynamic
         if verbose == true
             println("bond "*string(i)*" of "*string(length(bond_vec_red)))
         end

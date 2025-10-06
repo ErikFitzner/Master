@@ -11,7 +11,7 @@ include("ConvenienceFunctions.jl")
 
 ### load graph evaluations
 spin_length = 1/2
-n_max = 10
+n_max = 12
 
 ### prepare lattice
 lattice_type = "Shastry-Sutherland"
@@ -22,9 +22,9 @@ j2 = true
 j3 = false
 j4 = false
 
-L = 10
+L = 12
 
-hte_lattice = getLattice(L,lattice_type,j1,j2,j3,j4);
+hte_lattice = getLattice(L,lattice_type,j1,j2,j3,j4); # "Shastry-Sutherland2", lattice_type
 
 ### plot lattice
 if false
@@ -79,7 +79,7 @@ end
 #########################################################################################
 ###### Dynamic structure factor (DSF) ###################################################
 #########################################################################################
-if true
+if false
     # for loop with multiple J2/J1
     #k_pihalf = []
     #a_vec = 1 ./ [0.25,0.5,0.63]
@@ -87,7 +87,7 @@ if true
 
     #substitute specific values for x2,x3,x4 to reduce to the previous form of c_iipDyn_mat
     #for i in 1:length(a_vec)
-    a = 1.25 # J_2/J_1
+    a = 1.6 # J_2/J_1
     #a = a_vec[i]
     b = 0.0
     c = 0.0
@@ -124,7 +124,7 @@ if true
         end
 
         #pade in u = tanh(f*x) (2 different versions)
-        f = 0.7   #define the f value (f=0.48 is very fine tuned to give good results)
+        f = 0.3   #define the f value (f=0.48 is very fine tuned to give good results)
         m_vec_times_x_extrapolated_u_pade1 = []
         m_vec_times_x_extrapolated_u_pade2 = []
         for m_idx=1:length(m_vec)-2
@@ -154,7 +154,7 @@ if true
     if true
         w_vec = collect(0.0:0.025:5.5) #3.5
         r_max = 3
-        f = 0.7  #a=0.0-->f=0.7,a=1.0-->f=,a=1.25-->f=0.7,a=2.0-->f=0.5?
+        f = 0.3  #a=0.0-->f=0.7,a=1.0-->f=,a=1.25-->f=0.7,a=2.0-->f=0.5?
         #f = f_vec[i]
         ufromx_mat = get_LinearTrafoToCoeffs_u(n_max+1,f)
         poly_x = Polynomial([0,1],:x)
@@ -164,6 +164,9 @@ if true
         u0 = tanh.(f .* x0)
 
         ### define and generate k-path 
+        #path = [(0.001,0.001),(pi,0)]
+        #pathticks = ["(0,0)","(π,0)"]
+
         path = [(pi/2,pi/2),(pi,0),(pi,pi),(pi/2,pi/2),(0.001,0.001),(pi,0)]
         pathticks = ["(π/2,π/2)","(π,0)","(π,π)","(π/2,π/2)","(0,0)","(π,0)"]
 
@@ -216,13 +219,13 @@ if true
         end
 
         if true
-            JSkw_mat = get_JSkw_mat_neu("u_pade",x0,k_vec,w_vec,c_iipDyn_mat_subst,hte_lattice)
+            JSkw_mat = get_JSkw_mat_neu("u_pade",x0,k_vec,w_vec,c_iipDyn_mat_subst,hte_lattice,f=f)
         end
     end
 end
 
 ###### plot JS(k,ω)
-if true
+if false
     using CairoMakie
 
     fig = Figure(fontsize=8,size=(aps_width,0.6*aps_width));
@@ -255,7 +258,7 @@ end
 
 ###### plot k slice
 if false
-    slice = 32  #[1, 14, 32, 45, 58, 76]
+    slice = 45  #[1, 14, 32, 45, 58, 76]
     kslice = k_vec[slice]
     #println(kslice)
     fig = Figure(fontsize=8,size=(aps_width,0.6*aps_width));
@@ -372,7 +375,8 @@ if false
 end
 
 ###### plot
-if false
+if true
+    using CairoMakie
     fig = Figure(fontsize=8,size=(aps_width,0.6*aps_width));
     ax=Axis(fig[1,1],xlabel=L"\mathbf{k}",ylabel=L"\omega/J=w",xlabelsize=8,ylabelsize=8);
     hm=CairoMakie.heatmap!(ax,collect(0:Nk)/(Nk),w_vec, JSkw_mat,colormap=:viridis,colorrange=(0.001,0.4),highclip=:white);
@@ -382,7 +386,7 @@ if false
 
     resize_to_layout!(fig);
     display(fig)
-    save("Images/$(lattice_type)_dimer.png",fig; px_per_unit=6.0)
+    #save("Images/$(lattice_type)_dimer.png",fig; px_per_unit=6.0)
 end
 
 ###### plot w slice
@@ -395,5 +399,5 @@ if false
     lines!(ax,collect(0:Nk) ./ Nk,JSkw_mat[:,slice])
     ax.xticks = ((kticks_positioins .- 1) ./ Nk,pathticks)
     display(fig)
-    save("Images/$(lattice_type)_dimer_wslice_$(wslice).png",fig; px_per_unit=6.0)
+    #save("Images/$(lattice_type)_dimer_wslice_$(wslice).png",fig; px_per_unit=6.0)
 end

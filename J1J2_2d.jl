@@ -11,7 +11,7 @@ include("ConvenienceFunctions.jl")
 
 ### load graph evaluations
 spin_length = 1/2
-n_max = 10
+n_max = 12
 
 ### prepare lattice
 lattice_type = "Shastry-Sutherland"
@@ -22,7 +22,7 @@ j2 = true
 j3 = false
 j4 = false
 
-L = 10
+L = 12
 
 hte_lattice = getLattice(L,lattice_type,j1,j2,j3,j4);
 
@@ -107,7 +107,7 @@ if true
     end
     
     ###### check moments
-    if true
+    if false
         #(we will calculate the first four moments at fixed k)
         k = pi  #define fixed k 
         x_vec = 0:0.01:2.0  #define temperature range of interest
@@ -152,53 +152,53 @@ if true
         ##############
         display(plt_m)
     end
-    if false
-    w_vec = collect(0.0:0.025:4.5) #3.5
-    r_max = 3 #5???     
-    f = 0.7  #a=0.0-->f=0.7,a=1.0-->f=,a=1.25-->f=0.7,a=2.0-->f=0.5?
-    #f = f_vec[i]
-    ufromx_mat = get_LinearTrafoToCoeffs_u(n_max+1,f)
-    poly_x = Polynomial([0,1],:x)
+    if true
+        w_vec = collect(0.0:0.025:5.5) #3.5
+        r_max = 3 #5?     
+        f = 0.7  #a=0.0-->f=0.7,a=1.0-->f=,a=1.25-->f=0.7,a=2.0-->f=0.5?
+        #f = f_vec[i]
+        ufromx_mat = get_LinearTrafoToCoeffs_u(n_max+1,f)
+        poly_x = Polynomial([0,1],:x)
 
-    x = 3.0  # J/T
-    x0 = x/sc  # J1/T
-    u0 = tanh.(f .* x0)
+        x = 2.0  # J/T
+        x0 = x/sc  # J1/T
+        u0 = tanh.(f .* x0)
 
-    ### define and generate k-path 
-    path = [(pi/2,pi/2),(pi,0),(pi,pi),(pi/2,pi/2),(0.001,0.001),(pi,0)]
-    pathticks = ["(π/2,π/2)","(π,0)","(π,π)","(π/2,π/2)","(0,0)","(π,0)"]
+        ### define and generate k-path 
+        path = [(pi/2,pi/2),(pi,0),(pi,pi),(pi/2,pi/2),(0.001,0.001),(pi,0)]
+        pathticks = ["(π/2,π/2)","(π,0)","(π,π)","(π/2,π/2)","(0,0)","(π,0)"]
 
-    #path = [(pi/4,pi/4),(pi/2,0),(pi/2,pi/2),(pi/4,pi/4),(0.001,0.001),(pi/2,0)]
-    #pathticks = ["(π/4,π/4)","(π/2,0)","(π/2,π/2)","(π/4,π/4)","(0,0)","(π/2,0)"]
+        #path = [(pi/4,pi/4),(pi/2,0),(pi/2,pi/2),(pi/4,pi/4),(0.001,0.001),(pi/2,0)]
+        #pathticks = ["(π/4,π/4)","(π/2,0)","(π/2,π/2)","(π/4,π/4)","(0,0)","(π/2,0)"]
 
-    Nk = 75  #75
-    k_vec,kticks_positioins = create_brillouin_zone_path(path, Nk)
-    JSkw_mat = zeros(Nk+1,length(w_vec))
+        Nk = 75  #75
+        k_vec,kticks_positioins = create_brillouin_zone_path(path, Nk)
+        JSkw_mat = zeros(Nk+1,length(w_vec))
 
-    ### fill JSkw_mat
-    for k_pos in eachindex(k_vec)
-        k = k_vec[k_pos]
-        c_kDyn = get_c_k(k,c_iipDyn_mat_subst,hte_lattice)
-        m_vec = get_moments_from_c_kDyn(c_kDyn)
-        m0 = Float64[]
+        ### fill JSkw_mat
+        for k_pos in eachindex(k_vec)
+            k = k_vec[k_pos]
+            c_kDyn = get_c_k(k,c_iipDyn_mat_subst,hte_lattice)
+            m_vec = get_moments_from_c_kDyn(c_kDyn)
+            m0 = Float64[]
 
-        for r in 0:r_max
-            xm_norm_r = coeffs(poly_x * (m_vec[1+r]/m_vec[1+r](0)))
-            p_u = Polynomial(ufromx_mat[1:n_max+2-2*r,1:n_max+2-2*r]*xm_norm_r)
-            push!(m0,m_vec[1+r](0)/x0 * get_pade(p_u,7-r,6-r)(u0))
+            for r in 0:r_max
+                xm_norm_r = coeffs(poly_x * (m_vec[1+r]/m_vec[1+r](0)))
+                p_u = Polynomial(ufromx_mat[1:n_max+2-2*r,1:n_max+2-2*r]*xm_norm_r)
+                push!(m0,m_vec[1+r](0)/x0 * get_pade(p_u,7-r,6-r)(u0))
+            end
+            
+            δ_vec,r_vec = fromMomentsToδ(m0)
+            δ_vec_ext = extrapolate_δvec(δ_vec,length(δ_vec)-1,length(δ_vec)-1,2000,true)
+            JSkw_mat[k_pos,:] = [JS(δ_vec_ext,1.0*x0,w,0.02) for w in w_vec]
         end
-        
-        δ_vec,r_vec = fromMomentsToδ(m0)
-        δ_vec_ext = extrapolate_δvec(δ_vec,length(δ_vec)-1,length(δ_vec)-1,2000,true)
-        JSkw_mat[k_pos,:] = [JS(δ_vec_ext,1.0*x0,w,0.02) for w in w_vec]
-    end
-    #push!(k_pihalf,JSkw_mat[1,:]) #[1, 14, 32, 45, 58, 76]
+        #push!(k_pihalf,JSkw_mat[1,:]) #[1, 14, 32, 45, 58, 76]
     end
     #end
 end
 
 ###### plot JS(k,ω)
-if false
+if true
     using CairoMakie
 
     fig = Figure(fontsize=8,size=(aps_width,0.6*aps_width));
@@ -213,7 +213,7 @@ if false
     resize_to_layout!(fig);
     display(fig)
 
-    #save("Images/$(lattice_type)_JSkw_a_$(a).png",fig; px_per_unit=6.0)
+    save("Images/$(lattice_type)_JSkw_a_$(a).png",fig; px_per_unit=6.0)
 end
 
 ###### plot w slice
