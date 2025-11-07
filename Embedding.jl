@@ -154,16 +154,16 @@ end
 - external site indices jjp=[j,j'] can be [i,i'] (or [i',i] if gG is not symmetric under exchange of i <--> i')
 - assumes that the distance j-jp is smaller or equal to the distance of external vertices of gG
 """
-function e_fast(LL::SimpleWeightedGraph{Int},j::Int,jp::Int,gG::GraphG,max_order::Int)::Vector{Vector{Int}}
-    evec_alpha = count_subgraphisomorph_by_J2(LL,gG.g,max_order,jL1 = j,jL2 = jp,jG1 = gG.jjp[1],jG2 = gG.jjp[2])
-    return evec_alpha
+function e_fast(LL::SimpleWeightedGraph{Int,Int},j::Int,jp::Int,gG::GraphG, order::Int)::Vector{Int}
+    evec = count_subgraphisomorph_by_J2(LL,gG.g,order,jL1 = j,jL2 = jp,jG1 = gG.jjp[1],jG2 = gG.jjp[2])
+    return evec
 end
 
 ####### GraphG
 """ Calculate the coefficients of (-x)^n for TG_ii'(iν_m) from embedding factors of only the unique simple graphs and the gG's symmetry factors """    
-function Calculate_Correlator_fast(L::SimpleWeightedGraph{Int},ext_j1::Int,ext_j2::Int,max_order::Int,hte_graphs::Vector{Vector{GraphG}},C_Dict_vec::Vector{Vector{Vector{Rational{Int128}}}})::Vector{Vector{Tuple{Vector{Int64}, Vector{Rational{Int128}}}}}
+function Calculate_Correlator_fast(L::SimpleWeightedGraph{Int,Int},ext_j1::Int,ext_j2::Int,max_order::Int,hte_graphs::Vector{Vector{GraphG}},C_Dict_vec::Vector{Vector{Vector{Rational{Int128}}}})::Vector{Matrix{Rational{Int128}}}
     # initialize result_array as a vector of empty vectors for each order
-    result_array = [Vector{Tuple{Vector{Int}, Vector{Rational{Int128}}}}() for _ in 1:max_order+1]
+    result_array = Matrix{Rational{Int128}}[]
 
     # Convert L to unweighted graph for distance calculation
     L_unweighted = toSimpleGraph(L)
@@ -172,6 +172,8 @@ function Calculate_Correlator_fast(L::SimpleWeightedGraph{Int},ext_j1::Int,ext_j
     #println("($ext_j1,$ext_j2) ext vertices; unweighted distance = $ext_dist")
 
     for order in 0:max_order
+        #println("($ext_j1,$ext_j2) ext vertices; order = $order")
+        result_order = zeros(Rational{Int128},order+1,10)
         for (idx, gg) in enumerate(hte_graphs[order+1])
             # Calculate the distance between the external vertices of gg
             gg_unweighted = toSimpleGraph(gg.g)
@@ -192,21 +194,18 @@ function Calculate_Correlator_fast(L::SimpleWeightedGraph{Int},ext_j1::Int,ext_j
 
             # --- Symmetry logic for GraphG ---
             if is_symmetric(gg) || gg.jjp[1] == gg.jjp[2]
-                emb_fac = reduce_bond_counts(e_fast(L, ext_j1, ext_j2, gg, max_order))
+                emb_fac = e_fast(L, ext_j1, ext_j2, gg, order+1)
             else
-                emb_fac = reduce_bond_counts(vcat(e_fast(L, ext_j1, ext_j2, gg, max_order),e_fast(L, ext_j2, ext_j1, gg, max_order)))
+                emb_fac = e_fast(L, ext_j1, ext_j2, gg, order+1) .+ e_fast(L, ext_j2, ext_j1, gg, order+1)
             end
 
             #println("($order,$idx) th graph embeding factor = $emb_fac")
 
             look_up_dict = C_Dict_vec[order+1][idx]
-            append!(result_array[order+1], (bond_counts, look_up_dict .* count * (1//symmetryFactor(gg))) for (bond_counts, count) in emb_fac)
-            #=
-            for (bond_counts, count) in emb_fac
-                push!(result_array[order+1], (bond_counts, look_up_dict .* count * (1//symmetryFactor(gg))))
-            end
-            =#
+            result_order += emb_fac .* look_up_dict' .* (1//symmetryFactor(gg))
+            #println(emb_fac .* look_up_dict' .* (1//symmetryFactor(gg)))
         end
+        push!(result_array, result_order)
     end
     return result_array
 end

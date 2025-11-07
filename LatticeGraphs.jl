@@ -4,8 +4,8 @@ include("Structs.jl")
 include("Lattice.jl")
 include("LatticeSymmetries.jl")
 
-function latticeToGraph(lattice::Lattice)::SimpleWeightedGraph{Int}
-    g = SimpleWeightedGraph(lattice.length)
+function latticeToGraph(lattice::Lattice)::SimpleWeightedGraph{Int,Int}
+    g = SimpleWeightedGraph{Int,Int}(lattice.length)
     ints = lattice.interactionSites
     imats = lattice.interactionMatrices
 
@@ -14,7 +14,7 @@ function latticeToGraph(lattice::Lattice)::SimpleWeightedGraph{Int}
             u = ints[v][k]
             if u != v && !has_edge(g, v, u)
                 M = imats[v][k]
-                w = M.m11
+                w = Int(M.m11)
                 add_edge!(g, v, u, w)
             end
         end
@@ -76,6 +76,23 @@ function get_finite_Lattice(L::Int,geometry::String, j1::Bool, j2::Bool, j3::Boo
 
         # Fourth neighbors (J4)
         addInteraction!(uc, b0, b0, M4, (4,0))
+
+        l = (L,1)
+
+    elseif geometry == "ladder" ### ladder lattice
+        a1 = (1, 0)
+        a2 = (0, 1)
+
+        uc = UnitCell(a1,a2)
+        b0 = addBasisSite!(uc, (0.0,0.0))
+        b1 = addBasisSite!(uc, (0.0,1.0))
+
+        # J
+        addInteraction!(uc, b0, b0, M1, (1,0))
+        addInteraction!(uc, b1, b1, M1, (1,0))
+
+        # J_perp
+        addInteraction!(uc, b0, b1, M2, (0,0))
 
         l = (L,1)
 
@@ -402,6 +419,22 @@ function getLattice(L::Int,geometry::String, j1::Bool, j2::Bool, j3::Bool,j4::Bo
         lattice.sitePositions = [lattice.sitePositions[i] .- lattice.sitePositions[center_site] for i in 1:chain_length] #shift center site to zero coordinate
         return Dyn_HTE_Lattice(geometry ,lattice, LatGraph, center_sites)
     end
+    if geometry == "ladder"
+        chain_length = 2 * L + 1
+        lattice,LatGraph = get_finite_Lattice(chain_length,"ladder",j1,j2,j3,j4; PBC = false)
+        # The ladder unit cell has two basis sites (one on each leg)
+        basis = length(lattice.unitcell.basis)
+        center_cell = div(chain_length + 1, 2)
+        center_sites = [(center_cell - 1) * basis + b for b in 1:basis]
+
+        # Recenter positions so that the midpoint of the central sites is at the origin.
+        center_positions = [lattice.sitePositions[i] for i in center_sites]
+        D = length(center_positions[1])
+        center_pos = ntuple(d -> sum(getindex.(center_positions, d)) / length(center_positions), D)
+
+        lattice.sitePositions = [pos .- center_pos for pos in lattice.sitePositions]
+        return Dyn_HTE_Lattice(geometry, lattice, LatGraph, center_sites)
+    end
     if geometry == "dimer"
         lattice, LatGraph = get_finite_Lattice(1, "dimer",j1,j2,j3,j4; PBC = false)  # assuming you created this case
         center_sites = collect(1:length(lattice.sitePositions))  # all are center
@@ -453,7 +486,7 @@ function getLattice(L::Int,geometry::String, j1::Bool, j2::Bool, j3::Bool,j4::Bo
 
     # Calculate the shortest path distances from each center vertex to all other vertices
     # Convert to unweighted graph for distance calculation
-    LatGraph_unweighted = toSimpleGraph(LatGraph)
+    LatGraph_unweighted = toSimpleGraph(LatGraph) # LatGraph
     distances = [dijkstra_shortest_paths(LatGraph_unweighted, center_vertices[i]).dists for i = 1:basis]
 
     # Identify vertices that are farther away than a threshold distance `L`

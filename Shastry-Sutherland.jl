@@ -5,8 +5,6 @@ include("LatticeGraphs.jl")
 include("Embedding.jl")
 include("ConvenienceFunctions.jl") 
 
-# TODO add an if statement to distinguish case using one bond type from case with different types --> unique_gG_vec vs GraphG
-
 @variables x1 x2
 
 ### load graph evaluations
@@ -36,7 +34,7 @@ if false
 end
 
 ### compute all correlations in the lattice (or load them)
-if false
+if true
     fileName_c = "CaseStudy/$(lattice_type)_" * create_spin_string(spin_length) * "_c_iipDyn_nmax" * string(n_max) * "_L" * string(L) * "_J1_$(1*j1)_J2_$(1*j2)_J3_$(1*j3)_J4_$(1*j4).jld2"
     if isfile(fileName_c)
         println("loading "*fileName_c)
@@ -54,7 +52,7 @@ end
 #println(size(c_iipDyn_mat))
 #println(c_iipDyn_mat[1,1])
 
-#result = get_TGiip_Matsubara_xpoly(c_iipDyn_mat,36,1,0)
+#result = get_TGiip_Matsubara_xpoly(c_iipDyn_mat,134,1,0)
 #println("result = $(result)")
 
 #c_iipEqualTime_mat = get_c_iipEqualTime_mat(c_iipDyn_mat)
@@ -63,18 +61,6 @@ end
 #expr_sub = substitute(result_suscept, Dict(x2 => 0))
 #println("uniform susceptibility (x2=0) = $(expr_sub)")
 
-if false
-a = 0.5 #J/J_D
-f_num = subvalue(result_suscept,1/a)
-xs1 = range(0.1, 2, length=200)
-xs2 = range(0.1, 10, length=200)
-ys = [f_num(x) for x in xs1]
-y_pade = robustpade(f_num,6,6).(xs2)
-
-Plots.plot(1 ./ xs1, ys, xlabel=L"T/J", ylabel="χ", title=L"J/J_D="*string(a), label="x-Series")
-#Plots.plot!(1 ./ xs2, y_pade, color="orange", linestyle=:dash, alpha=0.7, label="Pade")
-display(current())
-end
 
 #########################################################################################
 ###### Dynamic structure factor (DSF) ###################################################
@@ -159,16 +145,16 @@ if false
         ufromx_mat = get_LinearTrafoToCoeffs_u(n_max+1,f)
         poly_x = Polynomial([0,1],:x)
 
-        x = 2.0  # J/T
+        x = 6.0  # J/T
         x0 = x/sc  # J1/T
         u0 = tanh.(f .* x0)
 
         ### define and generate k-path 
-        #path = [(0.001,0.001),(pi,0)]
-        #pathticks = ["(0,0)","(π,0)"]
+        path = [(0.001,0.001),(pi,0)]
+        pathticks = ["(0,0)","(π,0)"]
 
-        path = [(pi/2,pi/2),(pi,0),(pi,pi),(pi/2,pi/2),(0.001,0.001),(pi,0)]
-        pathticks = ["(π/2,π/2)","(π,0)","(π,π)","(π/2,π/2)","(0,0)","(π,0)"]
+        #path = [(pi/2,pi/2),(pi,0),(pi,pi),(pi/2,pi/2),(0.001,0.001),(pi,0)]
+        #pathticks = ["(π/2,π/2)","(π,0)","(π,π)","(π/2,π/2)","(0,0)","(π,0)"]
 
         #path = [(pi/4,pi/4),(pi/2,0),(pi/2,pi/2),(pi/4,pi/4),(0.001,0.001),(pi/2,0)]
         #pathticks = ["(π/4,π/4)","(π/2,0)","(π/2,π/2)","(π/4,π/4)","(0,0)","(π/2,0)"]
@@ -237,6 +223,8 @@ if false
     CairoMakie.text!(ax,"J2/J1="*string(a),position=[(0.05,0.5/sc)],color=:white)
     CairoMakie.text!(ax,"f=$f",position=[(0.05,0.2/sc)],color=:white)
 
+    #CairoMakie.hlines!(ax,0.417,color=:white,linestyle=:dash)
+
     resize_to_layout!(fig);
     display(fig)
 
@@ -277,18 +265,19 @@ end
 if false
     using CairoMakie
 
-    a = 4.0 # J_2/J_1
+    a = 1.6 # J_2/J_1
     b = 0.0
     c = 0.0
     sc = sqrt(1+a^2+b^2+c^2) # scale to w/J and JS
     w_vec = collect(0.0:0.025:5.5) #5.5
     kslice = (pi/2,pi/2)  # (pi/2,pi/2)
 
-    fig = Figure()
-    ax = Axis(fig[1,1], xlabel=L"\omega/J", ylabel=L"JS(\mathbf{k},ω)")
-    lines!(ax, [NaN], [NaN], label = "J1/J2 = $(round(1/a, digits=2)), k=(π/2,π/2)", color = :transparent)
+    fig = Figure(size=(1.5*aps_width,aps_width))
+    ax = Axis(fig[1,1], xlabel=L"\omega/J", xlabelsize=16, ylabel=L"JS(\mathbf{k},ω)", ylabelsize=16)
+    lines!(ax, [NaN], [NaN], label = "J1/J2 = $(round(1/a, digits=2))", color = :transparent)
+    lines!(ax, [NaN], [NaN], label = "k=(π/2,π/2)", color = :transparent)
     
-    data = readdlm("JSkw_kslice_($(round(kslice[1],digits=2)),$(round(kslice[2],digits=2)))_a_$(a)_x_4.0.txt")
+    data = readdlm("C:/Users/User/Documents/Uni/Masterarbeit/Björn/Dyn-HTE-main/Images/DSF/Shastry-Sutherland2/T-broadening/(pihalf,pihalf)/JSkw_kslice_($(round(kslice[1],digits=2)),$(round(kslice[2],digits=2)))_a_$(a)_x_4.0.txt")
     peak_index = argmax(data)
     peak_ω = w_vec[peak_index]/sc
 
@@ -296,11 +285,11 @@ if false
     vlines!(ax, [peak_ω], color = :black, linestyle = :dash, label="Δ/J=$(round(peak_ω,digits=2))")
 
     for i in [1.0,2.0,2.5,3.0,4.0]
-        data = readdlm("JSkw_kslice_($(round(kslice[1],digits=2)),$(round(kslice[2],digits=2)))_a_$(a)_x_$(i).txt")  # (pihalf,pihalf) Images/DSF/$(lattice_type)/T-broadening/(pihalf,pihalf)/
+        data = readdlm("C:/Users/User/Documents/Uni/Masterarbeit/Björn/Dyn-HTE-main/Images/DSF/Shastry-Sutherland2/T-broadening/(pihalf,pihalf)/JSkw_kslice_($(round(kslice[1],digits=2)),$(round(kslice[2],digits=2)))_a_$(a)_x_$(i).txt")  # (pihalf,pihalf) Images/DSF/$(lattice_type)/T-broadening/(pihalf,pihalf)/
         lines!(ax, w_vec./sc, data[:,1], label = "T/Δ=$(round(1/i*1/peak_ω,digits=2))")
     end
     
-    axislegend(ax; position = :lt, labelsize = 14)
+    axislegend(ax; position = :rt, labelsize = 12)
     display(fig)
     save("Images/$(lattice_type)_kslices_($(round(kslice[1],digits=2)),$(round(kslice[2],digits=2)))_a_$(a).png",fig; px_per_unit=6.0)
 end
@@ -315,7 +304,7 @@ if false
         Plots.plot!(plt,w_vec./sc,k_pihalf[i].*sc,label=L"J_2/J_1="*string(a_vec[i])*", "*L"k=(\pi/2,\pi/2)")
     end
     display(plt)
-    savefig(plt,"Images/Shastry-Sutherland_(pi,pi).png")
+    #savefig(plt,"Images/Shastry-Sutherland_(pi,pi).png")
 end
 
 ####### Exact dimer
@@ -375,7 +364,7 @@ if false
 end
 
 ###### plot
-if true
+if false
     using CairoMakie
     fig = Figure(fontsize=8,size=(aps_width,0.6*aps_width));
     ax=Axis(fig[1,1],xlabel=L"\mathbf{k}",ylabel=L"\omega/J=w",xlabelsize=8,ylabelsize=8);

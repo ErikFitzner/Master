@@ -526,14 +526,15 @@ end
 function count_subgraphisomorph_by_J2(
     g1::SimpleWeightedGraph,
     g2::AbstractGraph,
-    max_order::Int;
+    order::Int;
     vertex_relation::F1 = identity_relation,
     edge_relation::F2 = identity_relation,
+    injection::F3 = x->x[1], # x->((x[1] + x[2]) * (x[1] + x[2] + 1)) ÷ 2 + x[2]
     jL1::Int,
     jL2::Int,
     jG1::Int,
     jG2::Int
-)::Vector{Vector{Int}} where {F1, F2}
+)::Vector{Int} where {F1, F2, F3}
 
     n_bonds = Int.(count_distinct_weights(g1))  # Convert entries to Int
 
@@ -552,26 +553,21 @@ function count_subgraphisomorph_by_J2(
         append!(gg,[dests])
     end
 
-    result = []
-    function callback(vmap)::Bool
-        bond_counts = zeros(Int, length(n_bonds))
-        for u in 1:length(gg), v in gg[u] #vertices(g2), v in neighbors(g2, u)
-            if u < v  # avoid double-counting edges
-                mapped_u = vmap[u]
-                mapped_v = vmap[v]
-                
-                if has_edge(g1, mapped_u, mapped_v)
-                    w = g1.weights[mapped_u, mapped_v]
-                    
-                    for j in n_bonds
-                        if isapprox(w, j; atol=1e-6)
-                            bond_counts[j] += 1
-                        end
-                    end
+    #result = zeros(Int,44)
+    result = zeros(Int,order)
+    bond_counts = zeros(Int, length(n_bonds))
+
+    function callback(vmap::Vector{Int})::Bool
+        fill!(bond_counts,0)
+        for u in eachindex(gg)
+            for v in gg[u] #vertices(g2), v in neighbors(g2, u)
+                if u < v  # avoid double-counting edges
+                    w = g1.weights[vmap[u], vmap[v]]
+                    bond_counts[w] += 1
                 end
             end
         end
-        push!(result,bond_counts) 
+        result[injection(bond_counts)+1] += 1
         return true
     end
 
@@ -602,19 +598,19 @@ function count_subgraphisomorph(
     )::Int where {F1,F2}
     
 
-   #=  result = 0
+    #=  result = 0
     callback(vmap) = (result += 1; return true) =#
 
   
-  result = Ref(0) 
-   function callback2(result::Ref{Int})::Bool
-      result[] += 1; 
-      return true
-   end
+    result = Ref(0) 
+    function callback2(result::Ref{Int})::Bool
+        result[] += 1; 
+        return true
+    end
 
-   function callback(vmap)::Bool
-    return callback2(result)
- end
+    function callback(vmap)::Bool
+        return callback2(result)
+    end
    
     vf2(
         callback,

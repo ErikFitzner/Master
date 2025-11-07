@@ -14,7 +14,7 @@ spin_length = 1/2
 n_max = 12
 
 ### prepare lattice
-lattice_type = "Shastry-Sutherland"
+lattice_type = "square"
 
 # Are there J1, J2, J3, J4 interactions?
 j1 = true
@@ -89,7 +89,7 @@ if true
 
     #substitute specific values for x2,x3,x4 to reduce to the previous form of c_iipDyn_mat
     #for i in 1:length(a_vec)
-    a = 4.0 # J_2/J_1
+    a = 0.0 # J_2/J_1
     #a = a_vec[i]
     b = 0.0
     c = 0.0
@@ -160,7 +160,7 @@ if true
         ufromx_mat = get_LinearTrafoToCoeffs_u(n_max+1,f)
         poly_x = Polynomial([0,1],:x)
 
-        x = 2.0  # J/T
+        x = 0.01  # J/T
         x0 = x/sc  # J1/T
         u0 = tanh.(f .* x0)
 
@@ -213,7 +213,7 @@ if true
     resize_to_layout!(fig);
     display(fig)
 
-    save("Images/$(lattice_type)_JSkw_a_$(a).png",fig; px_per_unit=6.0)
+    #save("Images/$(lattice_type)_JSkw_a_$(a).png",fig; px_per_unit=6.0)
 end
 
 ###### plot w slice
@@ -226,12 +226,12 @@ if false
     lines!(ax,collect(0:Nk) ./ Nk,JSkw_mat[:,slice].*sc)
     ax.xticks = ((kticks_positioins .- 1) ./ Nk,pathticks)
     display(fig)
-    save("Images/$(lattice_type)_wslice_$(wslice).png",fig; px_per_unit=6.0)
+    #save("Images/$(lattice_type)_wslice_$(wslice).png",fig; px_per_unit=6.0)
 end
 
 ###### plot k slice
-if false
-    slice = 8  #[1, 14, 32, 45, 58, 76]
+if true
+    slice = 32  #[1, 14, 32, 45, 58, 76]
     kslice = k_vec[slice]
     #println(kslice)
     fig = Figure(fontsize=8,size=(aps_width,0.6*aps_width));

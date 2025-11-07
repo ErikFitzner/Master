@@ -10,11 +10,11 @@ include("ConvenienceFunctions.jl")
 ### load graph evaluations
 spin_length = 1/2
 bc1 = spin_length*(spin_length+1)/3
-n_max = 10
+n_max = 12
 
 ### prepare lattice
-lattice_type = "bcc" #"Shastry-Sutherland"
-d = 3
+lattice_type = "square_XX" #"Shastry-Sutherland"
+d = 2
 ex = zeros(d)  # creates a d-dimensional zero vector
 ex[1] = 1      # set first component to 1
 
@@ -24,9 +24,9 @@ j2 = true
 j3 = false
 j4 = false
 
-L = 10
+L = 12
 
-#hte_lattice = getLattice(L,lattice_type,j1,j2,j3,j4);
+hte_lattice = getLattice(L,"square",j1,j2,j3,j4);  #"chain", "square"
 
 ### compute all correlations in the lattice (or load them)
 function load_ciipDyn_mat_subst(a::Float64;b::Float64=0.0,c::Float64=0.0)
@@ -50,7 +50,7 @@ function get_moments_Gklim(c_iipDyn_mat, hte_lattice, ex)
     center_sites = hte_lattice.basis_positions
     z = zeros(size(c_iipDyn_mat[1]))
     for b in 1:length(center_sites)
-        for i in 1:length(lattice)
+        for i in 1:size(c_iipDyn_mat)[1]  #length(lattice)
             z += (dot(ex, getSitePosition(lattice,i) .- getSitePosition(lattice,center_sites[b])))^2 * c_iipDyn_mat[i,b]
         end
     end
@@ -68,7 +68,7 @@ end
 
 """ get σ(w) from δ_vec at w=ω/J and broadening η"""
 function sigma(δ_vec::Vector{Float64},x::Float64,w::Float64,η::Float64)::Float64
-    res = 1/pi * real(contFrac(1im * w + η,δ_vec))
+    res = 1/pi * real(contFrac(1im * w + η,δ_vec.^2))#.^2
     if x==0.0 || w==0.0
         return pi * res
     else
@@ -86,7 +86,7 @@ function sigma_neu(δ_vec::Vector{Float64},x::Float64,w::Float64,extrap_params::
         a = abs(a)
     end
 
-    res = 1/pi * real(contFracwithTerminator(1im * w ,δ_vec,a,b))
+    res = 1/pi * real(contFracwithTerminator(1im * w,δ_vec,a,b))#^2
     if x==0.0 || w==0.0
         return pi * res
     else
@@ -105,25 +105,8 @@ end
 ###### Analytic continuation ######################################
 ###################################################################
 
-function get_delta_vec_ext(x0::Float64, moments;f::Float64=0.7,r_max::Int64=3)
-    n_max_d = n_max#-2
-    ufromx_mat = get_LinearTrafoToCoeffs_u(n_max_d+1,f)
-    poly_x = Polynomial([0,1],:x)
-    u0 = tanh.(f .* x0)
-        m0 = Float64[]
-        for r in 1:r_max
-            xm_norm_r = coeffs(poly_x * (moments[1+r]/moments[1+r](0)))
-            p_u = Polynomial(ufromx_mat[1:n_max_d+2-2*r,1:n_max_d+2-2*r]*xm_norm_r)
-            push!(m0,moments[1+r](0)/x0 * get_pade(p_u,7-r,6-r)(u0))
-        end
-    δ_vec,r_vec = fromMomentsToδ(m0)
-    δ_vec_ext = extrapolate_δvec(δ_vec,length(δ_vec)-1,length(δ_vec)-1,2000,true)
-    return δ_vec_ext
-end
-
-function get_delta_vec_ext_neu(x0::Float64,moments;f::Float64=0.7,r_max::Int64=3,r_min::Int64=3)
-    intercept0 = true
-    n_max_d = n_max - 2
+function get_delta_vec_ext(x0::Float64,moments;f::Float64=0.7,r_max::Int64=3)
+    n_max_d = n_max-2
     ufromx_mat = get_LinearTrafoToCoeffs_u(n_max_d+1,f)
     poly_x = Polynomial([0,1],:x)
     u0 = tanh.(f .* x0)
@@ -134,12 +117,40 @@ function get_delta_vec_ext_neu(x0::Float64,moments;f::Float64=0.7,r_max::Int64=3
             push!(m0,moments[1+r](0)/x0 * get_pade(p_u,6-r,5-r)(u0))
         end
     δ_vec,r_vec = fromMomentsToδ(m0)
+
+    δ_vec_ext = extrapolate_δvec(δ_vec,length(δ_vec)-2,length(δ_vec)-1,2000,false)
+    b_vec = [sqrt(d) for d in δ_vec]
+    b_vec_ext = extrapolate_δvec(b_vec,length(b_vec)-2,length(b_vec)-1,2000,false)
+
+    return δ_vec_ext, b_vec_ext
+end
+
+function get_delta_vec_ext_neu(x0::Float64,moments;f::Float64=0.7,r_max::Int64=3,r_min::Int64=3)
+    intercept0 = true
+    n_max_d = n_max - 2
+    ufromx_mat = get_LinearTrafoToCoeffs_u(n_max_d+1,f)
+    poly_x = Polynomial([0,1],:x)
+    u0 = tanh.(f .* x0)
+    #m0 = [moments[i](x0) for i in 1:length(moments)]
+    if true
+        m0 = Float64[]
+        for r in 0:r_max
+            xm_norm_r = coeffs(poly_x * (moments[1+r]/moments[1+r](0)))
+            p_u = Polynomial(ufromx_mat[1:n_max_d+2-2*r,1:n_max_d+2-2*r]*xm_norm_r)
+            push!(m0,moments[1+r](0)/x0 * get_pade(p_u,6-r,5-r)(u0))
+        end
+    end
+    δ_vec,r_vec = fromMomentsToδ(m0)
+    
+    #δ_vec = [sqrt(d) for d in δ_vec]
     
     # find last index where δ_vec is non-negative
     idx = findfirst(<(0), δ_vec)
     lastidx = isnothing(idx) ? length(δ_vec) : idx - 1
     r_max_eff = min(lastidx - 1, r_max)
-    r_min_eff = min(r_min, r_max_eff)
+    #r_min_eff = min(r_min, r_max_eff)
+    #r_min_eff = max(0, r_max_eff-1)
+    r_min_eff = r_max_eff
 
     if r_max_eff < 1
         println("WARNING: negative δ1, putting δ0 = 0")
@@ -147,10 +158,26 @@ function get_delta_vec_ext_neu(x0::Float64,moments;f::Float64=0.7,r_max::Int64=3
         δ_vec = [0.0,1.0]
         r_max_eff = 0
     else
+        #println("r_max_eff = $(r_max_eff), r_min_eff = $(r_min_eff)")
         extrap_params = get_extrapolation_params(δ_vec[1:r_max_eff+1],r_min_eff,r_max_eff,intercept0)
     end
+    
+    #println(extrap_params)
+    #println(δ_vec)
+    
+    # plot delta
+    if false
+        plt_δ = Plots.plot([0],[0],title="$(lattice_type)",label="",xlabel=L"r",ylabel=L"b_r",legend=:bottomright)
+        Plots.scatter!(plt_δ,r_vec,δ_vec,label="")
+        δ_vec_ext = extrap_params[2] .+ extrap_params[1] .* (0:8)
+        Plots.plot!(plt_δ,0:7,δ_vec_ext[0+1:8],label="",color=thermalCol13_vec[1])  # r_max+1
+        display(plt_δ)
+        #savefig(plt_δ,"Images/bVec_$(lattice_type)_x0_$(x0)_rmax_$(r_max).png")
+    end
+
     return δ_vec, extrap_params
 end
+
 
 
 ###################################################################
@@ -187,23 +214,41 @@ function DS_w_x(x_vec::Vector{Float64},w_vec::Vector{Float64},a::Float64;r_max::
 
     sc = sqrt(1+a^2+b^2+c^2) # scale to w/J and JS
     
-    plt = Plots.plot([0],[0],label="",xlabel=L"w",ylabel=L"D_S/J(w)",title="$(lattice_type), J2/J1=$(a)",size=(1.5*aps_width,aps_width), legend=:topright)
+    plt = Plots.plot([0],[0],label="",xlabel=L"w",ylabel=L"D_S/J(w)",size=(0.8*1.5*aps_width,0.8*aps_width), legend=:bottomleft) # title="$(lattice_type) lattice, J2/J1=$(a)",
 
     for x in x_vec # J/T
         x0 = x/sc  # J1/T
 
-        #δ_vec_ext = get_delta_vec_ext(x0,moments,r_max=r_max,f=f)
-        #sigma_ω = [sigma(δ_vec_ext,x0,w*sc,0.01) for w in w_vec]
+        #δ_vec_ext = get_delta_vec_ext(x0,moments,r_max=r_max,f=f)[2]
+        #DS_w = [1/x0 * 1/Tχ_upade(tanh(f*x0)) * sigma(δ_vec_ext,x0,w*sc,0.001) for w in w_vec]
+        
+        #δ_vec,extrap_params = get_delta_vec_ext_neu(x0,moments,r_max=r_max,f=f)
+        #DS_w = [1/x0 * 1/Tχ_upade(tanh(f*x0)) * sigma_neu(δ_vec,x0,w*sc,extrap_params) for w in w_vec]
 
-        δ_vec,extrap_params = get_delta_vec_ext_neu(x0,moments,r_max=r_max,f=f)
+        #Plots.plot!(plt, w_vec, DS_w, label=L"r_{\text{max}}=" * "$(r+1)") # , label="x=$(x)"
+        
 
-        #DS_w = [1/x0 * Tχ(x0) * sigma_neu(δ_vec,x0,w*sc,extrap_params) for w in w_vec]
-        DS_w = [1/x0 * Tχ_upade(tanh(f*x0)) * sigma_neu(δ_vec,x0,w*sc,extrap_params) for w in w_vec]
+        δ_vec_ext = get_delta_vec_ext(x0,moments,r_max=1,f=f)[2]
+        DS_w = [1/x0 * 1/Tχ_upade(tanh(f*x0)) * sigma(δ_vec_ext,x0,w*sc,0.001) for w in w_vec]
+    
+        #δ_vec,extrap_params = get_delta_vec_ext_neu(x0,moments,r_max=r,f=f)
+        #DS_w = [1/x0 * 1/Tχ_upade(tanh(f*x0)) * sigma_neu(δ_vec,x0,w*sc,extrap_params) for w in w_vec]
 
-        Plots.plot!(plt, w_vec, DS_w, label="x=$(x)")
+        Plots.plot!(plt, w_vec, DS_w, label="Gauss", color=color_vec[1]) # , label="x=$(x)"
+
+        for r in 2:5
+            δ_vec_ext = get_delta_vec_ext(x0,moments,r_max=r,f=f)[2]
+            DS_w = [1/x0 * 1/Tχ_upade(tanh(f*x0)) * sigma(δ_vec_ext,x0,w*sc,0.001) for w in w_vec]
+        
+            #δ_vec,extrap_params = get_delta_vec_ext_neu(x0,moments,r_max=r,f=f)
+            #DS_w = [1/x0 * 1/Tχ_upade(tanh(f*x0)) * sigma_neu(δ_vec,x0,w*sc,extrap_params) for w in w_vec]
+
+            Plots.plot!(plt, w_vec, DS_w, label=L"r_{\text{max}}=" * "$(r+1)", color=color_vec[r]) # , label="x=$(x)"
+        end
+    
     end
     display(plt)
-    #savefig(plt,"Images/DS_$(lattice_type)_a_$(a).png")
+    savefig(plt,"Images/DS_$(lattice_type)_a_$(a).png")
 end
 
 function DS_w_x_log(x_vec::Vector{Float64},w_vec::Vector{Float64},a::Float64;r_max::Int64=3,f::Float64=0.7,b::Float64=0.0,c::Float64=0.0)
@@ -225,8 +270,8 @@ function DS_w_x_log(x_vec::Vector{Float64},w_vec::Vector{Float64},a::Float64;r_m
 
         δ_vec,extrap_params = get_delta_vec_ext_neu(x0,moments,r_max=r_max,f=f)
 
-        #DS_w = [1/x0 * Tχ(x0) * sigma_neu(δ_vec,x0,w*sc,extrap_params) for w in w_vec]
-        DS_w = [1/x0 * Tχ_upade(tanh(f*x0)) * sigma_neu(δ_vec,x0,w*sc,extrap_params) for w in w_vec]
+        #DS_w = [1/x0 * 1/Tχ(x0) * sigma_neu(δ_vec,x0,w*sc,extrap_params) for w in w_vec]
+        DS_w = [1/x0 * 1/Tχ_upade(tanh(f*x0)) * sigma_neu(δ_vec,x0,w*sc,extrap_params) for w in w_vec]
 
         Plots.plot!(plt, w_vec.^2, DS_w, label="x=$(x)")
     end
@@ -273,8 +318,8 @@ function DS_w_a(x::Float64, w_vec::Vector{Float64}, a_vec::Vector{Float64};b::Fl
 
         δ_vec,extrap_params = get_delta_vec_ext_neu(x0,moments,r_max=r_max,f=f)
         
-        #sigma_ω = [1/x0 * Tχ(x0) * sigma_neu(δ_vec,x0,w*sc,extrap_params) for w in w_vec]
-        sigma_ω = [1/x0 * Tχ_upade(tanh(f*x0)) * sigma_neu(δ_vec,x0,w*sc,extrap_params) for w in w_vec]
+        #sigma_ω = [1/x0 * 1/Tχ(x0) * sigma_neu(δ_vec,x0,w*sc,extrap_params) for w in w_vec]
+        sigma_ω = [1/x0 * 1/Tχ_upade(tanh(f*x0)) * sigma_neu(δ_vec,x0,w*sc,extrap_params) for w in w_vec]
 
         Plots.plot!(plt2, w_vec, sigma_ω, label="a=$(a)")
         #println(sigma_ω[1]/(Tχ(x0)*x0))
@@ -301,8 +346,8 @@ function DS_w_a_log(x::Float64, w_vec::Vector{Float64}, a_vec::Vector{Float64};b
 
         δ_vec,extrap_params = get_delta_vec_ext_neu(x0,moments,r_max=r_max,f=f)
 
-        #sigma_ω = [1/x0 * Tχ(x0) * sigma_neu(δ_vec,x0,w*sc,extrap_params) for w in w_vec]
-        sigma_ω = [1/x0 * Tχ_upade(tanh(f*x0)) * sigma_neu(δ_vec,x0,w*sc,extrap_params) for w in w_vec]
+        #sigma_ω = [1/x0 * 1/Tχ(x0) * sigma_neu(δ_vec,x0,w*sc,extrap_params) for w in w_vec]
+        sigma_ω = [1/x0 * 1/Tχ_upade(tanh(f*x0)) * sigma_neu(δ_vec,x0,w*sc,extrap_params) for w in w_vec]
 
         Plots.plot!(plt2, w_vec .^ 2, sigma_ω, label="a=$(a)")
     end
@@ -320,7 +365,7 @@ function comp_DS_Dyn_Gauß(x_vec::Vector{Float64},a::Float64,str::String;b::Floa
     sc = sqrt(1+a^2+b^2+c^2) # scale to w/J and JS
 
     y_vec = [Diffusion_Gauß(Tχ, moments, x/sc) for x in x_vec]
-    plt3 = Plots.plot([0],[0],label="",xlabel=L"J/T",ylabel=L"D_S/J",title="Spin Diffusion, $(lattice_type), J2/J1=$(a)",size=(1.5*aps_width,aps_width), legend=:bottomleft)
+    plt3 = Plots.plot([0],[0],label="",xlabel=L"J/T",ylabel=L"D_S/J",title="Spin Diffusion, $(lattice_type), J2/J1=$(a)",size=(1.5*aps_width,aps_width), legend=:bottomleft)  # title="Spin Diffusion, XX $(lattice_type), " * L"J_\perp/J=1.0"
     Plots.plot!(plt3, x_vec, y_vec, label="Dyn-HTE: Gauß Approximation")
 
     #sig_x = [1/(i/sc) * 1/Tχ(i/sc) * sigma(get_delta_vec_ext(i/sc,moments,r_max=r_max,f=f),i/sc,w,0.02) for i in x_vec]
@@ -331,7 +376,7 @@ function comp_DS_Dyn_Gauß(x_vec::Vector{Float64},a::Float64,str::String;b::Floa
         δ_vec,extrap_params = get_delta_vec_ext_neu(x0,moments,r_max=r_max,f=f)
         
         push!(sig_x, 1/x0 * 1/Tχ(x0) * Richardson.extrapolate(w->sigma_neu(δ_vec,x0,w*sc,extrap_params),0.5;x0=0.0)[1])
-        #push!(sig_x, 1/x0 * 1/Tχ_upade(tanh(f*x0)) * Richardson.extrapolate(w->sigma_neu(δ_vec,x0,w*sc,extrap_params),0.5;x0=0.0)[1])
+        #push!(sig_x, 1/x0 * 1/Tχ_upade(tanh(f*x0)) * sigma_neu(δ_vec,x0,w*sc,extrap_params))
         
     end
     
@@ -381,7 +426,7 @@ end
 
 # comparison D_S/J for different a
 function DS_x_0(a_vec::Vector{Float64},str::String;b::Float64=0.0,c::Float64=0.0,r_max=Int64=3,f::Float64=0.7)
-    plt5 = Plots.plot([0],[0],label="",xlabel=L"J2/J1",ylabel=L"D_S/J(x=0)",title="Spin Diffusion, $(lattice_type)",size=(1.5*aps_width,aps_width),legend=:bottomright, xlims=(-0.05,1.1), ylims=(-0.05,0.35)) #xlims=(-0.05,1.1), ylims=(-0.05,0.35)
+    plt5 = Plots.plot([0],[0],label="",xlabel=L"J2/J1",ylabel=L"D_S/J(x=0)",title="Spin Diffusion, $(lattice_type)",size=(1.5*aps_width,aps_width),legend=:bottomright, xlims=(-0.05,4.1)) #xlims=(-0.05,1.1), ylims=(-0.05,0.35)
     
     xs = Float64[]
     ys = Float64[]
@@ -394,7 +439,7 @@ function DS_x_0(a_vec::Vector{Float64},str::String;b::Float64=0.0,c::Float64=0.0
         sc = sqrt(1+a^2+b^2+c^2) # scale to w/J and JS
 
         ds_0_gauß = Richardson.extrapolate(x->Diffusion_Gauß(Tχ, moments, x/sc),0.5;x0=0.0)[1]
-        ds_0 = Richardson.extrapolate(x->(1/x * 1/Tχ(x) * Richardson.extrapolate(w->sigma_neu(get_delta_vec_ext_neu(x,moments,r_max=r_max,f=f)[1],x,w*sc,get_delta_vec_ext_neu(x,moments,r_max=r_max,f=f)[2]),0.5;x0=0.0)[1]),0.1;x0=0.0)[1]
+        ds_0 = Richardson.extrapolate(x->(1/x * 1/Tχ(x) * Richardson.extrapolate(w->sigma_neu(get_delta_vec_ext_neu(x,moments,r_max=r_max,f=f)[1],x,w,get_delta_vec_ext_neu(x,moments,r_max=r_max,f=f)[2]),0.5;x0=0.0)[1]),0.1;x0=0.0)[1]
 
         push!(xs, a)
         push!(ys, ds_0/sc)
@@ -450,7 +495,19 @@ function DS_Bonca(x_vec::Vector{Float64};a::Float64=0.0,b::Float64=0.0,c::Float6
     Plots.plot!(plt6, 1 ./ x_vec, y_vec, label="Dyn-HTE: Gauß Approx.")
 
     #sig_x = [1/(i/sc) * 1/Tχ(i/sc) * sigma(get_delta_vec_ext(i/sc,moments,r_max=r_max,f=f),i/sc,w,0.02) for i in x_vec]
-    
+    #=
+    for r in [3,4]
+        sig_x = []
+        for x in x_vec
+            x0 = x/sc
+            δ_vec,extrap_params = get_delta_vec_ext_neu(x0,moments,r_max=r,f=f)
+            push!(sig_x, Richardson.extrapolate(w->(1/x0 * 1/Tχ(x0) * sigma_neu(δ_vec,x0,w*sc,extrap_params)),0.5;x0=0.0)[1])
+        end
+        
+        Plots.plot!(plt6, 1 ./ x_vec, sig_x./sc, label="Dyn-HTE (r_max=$(r))")
+    end
+    =#
+
     sig_x = []
     for x in x_vec
         x0 = x/sc
@@ -460,15 +517,16 @@ function DS_Bonca(x_vec::Vector{Float64};a::Float64=0.0,b::Float64=0.0,c::Float6
     
     Plots.plot!(plt6, 1 ./ x_vec, sig_x./sc, label="Dyn-HTE")
 
+
     bonca_x = [1.014,1.686,2.340,3.336,5.005,6.672,8.329,10.000]
     bonca_y = [0.642,0.624,0.571,0.522,0.480,0.459,0.447,0.438]
     Plots.scatter!(plt6, bonca_x, bonca_y, yerror=0.05 .* bonca_y, label="[BoncaPRB1995] (FTLM)", color=:grey)
 
     cap = 0.1
     for (xi, yi, ei) in zip(bonca_x, bonca_y, 0.05 .* bonca_y)
-        plot!([xi, xi], [yi - ei, yi + ei], color=:grey, linewidth=0.8, label=false)
-        plot!([xi - cap, xi + cap], [yi + ei, yi + ei], color=:grey, linewidth=0.8, label=false)
-        plot!([xi - cap, xi + cap], [yi - ei, yi - ei], color=:grey, linewidth=0.8, label=false)
+        Plots.plot!([xi, xi], [yi - ei, yi + ei], color=:grey, linewidth=0.8, label=false)
+        Plots.plot!([xi - cap, xi + cap], [yi + ei, yi + ei], color=:grey, linewidth=0.8, label=false)
+        Plots.plot!([xi - cap, xi + cap], [yi - ei, yi - ei], color=:grey, linewidth=0.8, label=false)
     end
 
     Plots.plot!(plt6, 1 ./ x_vec, sqrt(pi/20) .* (1 .+ 21/20 .* x_vec), linestyle=:dash, color=:purple, label="[SokolPRL1993]")
@@ -480,36 +538,53 @@ end
 # comparison D_S/J for different nmax
 function D_nmax(str::String;f::Float64=0.7)
     if str == "square"
-        plt5 = Plots.plot([0],[0],label="",xlabel=L"r_{max}",ylabel=L"D_S/J\;(T\to∞)",size=(1.5*aps_width,aps_width),legend=:bottomright, xlims=(1.9,5.1),ylims=(0.39,0.45))  # ,title="Spin Diffusion, $(lattice_type)"
+        plt5 = Plots.plot([0],[0],label="",xlabel=L"r_{max}",ylabel=L"D_S/J(x=0)",title="Spin Diffusion, $(lattice_type)",size=(1.5*aps_width,aps_width),legend=:bottomright, xlims=(1.9,6.1),ylims=(0.35,0.5))  # ,title="Spin Diffusion, $(lattice_type)", ylabel=L"D_S/J\;(T\to∞)"
         Plots.scatter!(plt5, [2], [sqrt(pi*bc1/(4*d-2-1/(4*bc1)))], label="[Kopietz1993]", markersize=10)
         data_morita = [0.793,0.842,0.839]
         Plots.scatter!(plt5, [2.0,3.0,4.0], data_morita./2, label="[Morita1972]", markershape=:star, markersize=14)
         Plots.hline!([0.42], color=:red, linestyle=:dash, label=false, linewidth=0.8)
-        r_list = [1,2,3,4]
+        r_list = [1,2,3,4,5]
     
-    elseif str == "sc"
+    elseif str == "simple_cubic"
         plt5 = Plots.plot([0],[0],label="",xlabel=L"r_{max}",ylabel=L"D_S/J(x=0)",title="Spin Diffusion, $(lattice_type)",size=(1.5*aps_width,aps_width),legend=:bottomright, xlims=(1.9,5.1), ylims=(0.25,0.35))
-        Plots.scatter!(plt5, [2], [sqrt(pi*bc1/(4*d-2-1/(4*bc1)))], label="[Kopietz1993]")
+        Plots.scatter!(plt5, [2], [sqrt(pi*bc1/(4*d-2-1/(4*bc1)))], label="[Kopietz1993]", markersize=10)
         data_morita = [0.591,0.620,0.618]
-        Plots.scatter!(plt5, [2.0,3.0,4.0], data_morita./2, label="[Morita1972]", markershape=:star, markersize=8)
-        Plots.hline!([0.619/2], color=:red, linestyle=:dash, label=false, linewidth=0.6)
-        r_list = [1,2,3]
+        Plots.scatter!(plt5, [2.0,3.0,4.0], data_morita./2, label="[Morita1972]", markershape=:star, markersize=14)
+        Plots.hline!([0.619/2], color=:red, linestyle=:dash, label=false, linewidth=0.8)
+        r_list = [1,2,3,4]
 
     elseif str == "chain"
-        plt5 = Plots.plot([0],[0],label="",xlabel=L"r_{max}",ylabel=L"D_S/J(x=0)",title="Spin Diffusion, $(lattice_type)",size=(1.5*aps_width,aps_width),legend=:bottomright, xlims=(1.9,5.1), ylims=(0.75,1.25))
-        Plots.scatter!(plt5, [2], [sqrt(pi*bc1/(4*1-2-1/(4*bc1)))], label="[Kopietz1993]")
+        plt5 = Plots.plot([0],[0],label="",xlabel=L"r_{max}",ylabel=L"D_S/J(x=0)",title="Spin Diffusion, $(lattice_type)",size=(1.5*aps_width,aps_width),legend=:bottomright, xlims=(1.9,6.1), ylims=(0.75,1.25))
+        Plots.scatter!(plt5, [2], [sqrt(pi*bc1/(4*1-2-1/(4*bc1)))], label="[Kopietz1993]", markersize=10)
         data_morita = [1.772,2.105,1.920,2.190]
-        Plots.scatter!(plt5, [2.0,3.0,4.0,5.0], data_morita./2, label="[Morita1972]", markershape=:star, markersize=8)
-        Plots.hline!([1.05], color=:red, linestyle=:dash, label=false, linewidth=0.6)
-        r_list = [1,2,3,4]
+        Plots.scatter!(plt5, [2.0,3.0,4.0,5.0], data_morita./2, label="[Morita1972]", markershape=:star, markersize=14)
+        Plots.hline!([1.05], color=:red, linestyle=:dash, label=false, linewidth=0.8)
+        r_list = [1,2,3,4,5]
 
     elseif str == "bcc"
         plt5 = Plots.plot([0],[0],label="",xlabel=L"r_{max}",ylabel=L"D_S/J(x=0)",title="Spin Diffusion, $(lattice_type)",size=(1.5*aps_width,aps_width),legend=:bottomright, xlims=(1.9,5.1), ylims=(0.15,0.35))
-        #Plots.scatter!(plt5, [2], [0.18], label="[Kopietz1993]")
+        #Plots.scatter!(plt5, [2], [0.18], label="[Kopietz1993]", markersize=10)
         data_morita = [0.492,0.512,0.507]
-        Plots.scatter!(plt5, [2.0,3.0,4.0], data_morita./2, label="[Morita1972]", markershape=:star, markersize=8, color=:green)
-        Plots.hline!([0.509/2], color=:red, linestyle=:dash, label=false, linewidth=0.6)
-        r_list = [1,2,3]
+        Plots.scatter!(plt5, [2.0,3.0,4.0], data_morita./2, label="[Morita1972]", markershape=:star, markersize=14, color=:green)
+        Plots.hline!([0.509/2], color=:red, linestyle=:dash, label=false, linewidth=0.8)
+        r_list = [1,2,3,4]
+
+    elseif str == "ladder"
+        plt5 = Plots.plot([0],[0],label="",xlabel=L"r_{max}",ylabel=L"D_S/J(x=0)",title="Spin Diffusion, XX $(lattice_type), " * L"J_\perp/J=1.0",size=(1.5*aps_width,aps_width),legend=:bottomright, xlims=(1.9,6.1), ylims=(0.75,1.15))
+        #Plots.scatter!(plt5, [2], [0.89], label="[Steinigeweg2014]", markersize=8)
+        
+        # Plot shaded band using ribbon
+        xvals = [1.9, 6.1]
+        ymid = (0.98 + 0.96) / 2
+        yribbon = (0.98 - 0.96) / 2
+        Plots.plot!(plt5, xvals, fill(ymid, 2), ribbon=fill(yribbon, 2), fillalpha=0.2, color=:purple, linestyle=:dash, label="[Pollmann2022]")
+        
+        Plots.hline!([0.95], color=:blue, linestyle=:dash, label="[Reichman2018]", linewidth=0.8)
+        r_list = [1,2,3,4,5]
+
+    elseif str == "square_XX"
+        plt5 = Plots.plot([0],[0],label="",xlabel=L"r_{max}",ylabel=L"D_S/J(x=0)",title="Spin Diffusion, $(lattice_type)",size=(1.5*aps_width,aps_width),legend=:bottomright, xlims=(1.9,6.1),ylims=(0.65,0.75))  #,title="Spin Diffusion, $(lattice_type)", ylabel=L"D_S/J\;(T\to∞)"
+        r_list = [1,2,3,4,5]
     end
 
     xs = Float64[]
@@ -520,12 +595,18 @@ function D_nmax(str::String;f::Float64=0.7)
         c_iipEqualTime_mat = get_c_iipEqualTime_mat(c_iipDyn_mat_subst)
         Tχ = Polynomial([(-1)^n*sum(c_iipEqualTime_mat[i,1][n+1] for i in 1:hte_lattice.lattice.length) for n in 0:n_max])
 
-        ds_0 = Richardson.extrapolate(x->(1/x * 1/Tχ(x) * Richardson.extrapolate(w->sigma_neu(get_delta_vec_ext_neu(x,moments,r_max=r,f=f)[1],x,w,get_delta_vec_ext_neu(x,moments,r_max=r,f=f)[2]),0.5;x0=0.0)[1]),0.1;x0=0.0)[1]
+        #ds_0 = Richardson.extrapolate(x->(1/x * 1/Tχ(x) * Richardson.extrapolate(w->sigma_neu(get_delta_vec_ext_neu(x,moments,r_max=r,f=f)[1],x,w,get_delta_vec_ext_neu(x,moments,r_max=r,f=f)[2]),0.5;x0=0.0)[1]),0.1;x0=0.0)[1]
+        ds_0 = Richardson.extrapolate(x->(1/x * 1/Tχ(x) * Richardson.extrapolate(w->sigma(get_delta_vec_ext(x,moments,r_max=r,f=f)[2],x,w,0.001),0.1;x0=0.0)[1]),0.1;x0=0.0)[1]
+        
+        #x = 1e-8
+        #ds_0 = 1/x * 1/Tχ(x) * Richardson.extrapolate(w->sigma_neu(get_delta_vec_ext_neu(x,moments,r_max=r,f=f)[1],x,w,get_delta_vec_ext_neu(x,moments,r_max=r,f=f)[2]),0.5;x0=0.0)[1]
+        
         push!(xs, r+1)
         push!(ys, ds_0)
     end
     Plots.scatter!(plt5, xs, ys, label="Dyn-HTE", alpha=0.7, color=:black, markersize=6)
     display(plt5)
+    println(ys)
     #savefig(plt5,"Images/SpinDiffusion_$(lattice_type)_n.png")
     
     #println(ys)
@@ -536,7 +617,7 @@ function sus(a::Float64, x_vec::Vector{Float64};f::Float64=0.3,b::Float64=0.0,c:
     c_iipDyn_mat_subst = load_ciipDyn_mat_subst(a,b=b,c=c)
     moments = get_moments_Gklim(c_iipDyn_mat_subst, hte_lattice, ex)
     c_iipEqualTime_mat = get_c_iipEqualTime_mat(c_iipDyn_mat_subst)
-    Tχ = Polynomial([(-1)^n*sum(c_iipEqualTime_mat[i,1][n+1] for i in 1:hte_lattice.lattice.length) for n in 0:n_max])
+    Tχ = Polynomial([(-1)^n*sum(c_iipEqualTime_mat[i,1][n+1] for i in 1:size(c_iipEqualTime_mat)[1]) for n in 0:n_max])  #hte_lattice.lattice.length
     sc = sqrt(1+a^2+b^2+c^2) # scale to T/J and Jχ
 
     x_vec_plot = x_vec ./ sc
@@ -545,7 +626,7 @@ function sus(a::Float64, x_vec::Vector{Float64};f::Float64=0.3,b::Float64=0.0,c:
 
     plt = Plots.plot([0],[0],label="",xlabel=L"T/J",ylabel=L"Jχ",title="$(lattice_type), a=$(a)",size=(1.5*aps_width,aps_width), legend=:topright) 
     #plot!(plt, 1 ./ x_vec_plot, x_vec_plot .* Tχ.(x_vec_plot), label="bare series")
-    plot!(plt, 1 ./ x_vec_plot, x_vec_plot .* get_upade(Tχ,f=f,m=m,n=n).(u_vec), label="u-pade[$(m),$(n)]")
+    Plots.plot!(plt, 1 ./ x_vec_plot, x_vec_plot .* get_upade(Tχ,f=f,m=m,n=n).(u_vec), label="u-pade[$(m),$(n)]")
 
     #scatter!(plt,[0.5,1.0,1.5,2.0],get_upade(Tχ,f=f,m=5,n=4).(tanh.(f.*[0.5,1.0,1.5,2.0])))
     display(plt)
@@ -553,7 +634,7 @@ function sus(a::Float64, x_vec::Vector{Float64};f::Float64=0.3,b::Float64=0.0,c:
 end
 
 ####### main ######
-x_vec = collect(0.01:0.5:1.5) #J/T
+x_vec = collect(0.01:0.5:2.0) #J/T
 w_vec = collect(0.025:0.025:5.0) #ω/J
 a = 0.0
 a_vec = [0.0,0.5,1.0,1.5,2.0,2.5,3.0,3.5,4.0] #[0.0,0.5,1.1,1.25,1.3,1.4,1.6,2.0,4.0]
@@ -561,19 +642,19 @@ a_vec = [0.0,0.5,1.0,1.5,2.0,2.5,3.0,3.5,4.0] #[0.0,0.5,1.1,1.25,1.3,1.4,1.6,2.0
 
 # moments of σ(w) and R(w) are connected but shifted by one -> r_max=3 means we use 0th moment:m_{d,2}, 1st moment:m_{d,4}, 2nd moment m_{d,6}, 3rd moment m_{d,8}
 
-#sigma_w_x(x_vec,w_vec,a,r_max=3)
-#DS_w_x(x_vec,w_vec,a,r_max=3)
+#sigma_w_x(x_vec,w_vec,a,r_max=5)
+DS_w_x([1e-8],w_vec,a,r_max=5)
 #DS_w_x_log(x_vec,w_vec,a,r_max=3)
 
-#comp_DS_Dyn_Gauß(collect(0.001:0.01:1.0),a,"none",r_max=3)
+#comp_DS_Dyn_Gauß(collect(0.001:0.01:1.0),a,"square",r_max=3)
 
 #sigma_w_a(0.01,w_vec,a_vec,r_max=3)
 #DS_w_a(1.0,w_vec,a_vec,r_max=3)
 #DS_w_a_log(0.01,w_vec,a_vec,r_max=3)
 
-DS_x_0([0.0,0.2,0.4,0.5,0.6,0.7,0.8,0.9,1.0,1.5,2.0,2.5,3.0,3.5,4.0],"none",r_max=3) #[0.0,0.2,0.4,0.5,0.7,0.8,0.9,1.0,1.5,2.0,2.5,3.0,3.5,4.0],[0.0,0.2,0.5,1.1,1.25,1.3,1.4,1.5,1.6,2.0,2.5,4.0]
-#D_nmax("bcc",f=0.7)
-#sus(0.2, collect(0.05:0.01:3.0))
+#DS_x_0([0.0,0.2,0.4,0.5,0.6,0.7,0.8,0.9,1.0,1.5,2.0,2.5,3.0,3.5,4.0],"hypercubic",r_max=3) #[0.0,0.2,0.4,0.5,0.7,0.8,0.9,1.0,1.5,2.0,2.5,3.0,3.5,4.0],[0.0,0.2,0.5,1.1,1.25,1.3,1.4,1.5,1.6,2.0,2.5,4.0]
+#D_nmax(lattice_type,f=0.7)
+#sus(1.6, collect(1.0:0.01:6.0))
 
 #DS_Bonca(collect(0.1:0.01:1.0),r_max=3) #only for square lattice
 
@@ -581,6 +662,61 @@ DS_x_0([0.0,0.2,0.4,0.5,0.6,0.7,0.8,0.9,1.0,1.5,2.0,2.5,3.0,3.5,4.0],"none",r_ma
 #xlim = 0.01
 #DS_x_a(collect(0.01:0.01:1.0),wlim,[0.0,0.2,0.4,0.5],r_max=3)
 
+
+#=
+plt5 = Plots.plot([0],[0],label="",xlabel=L"r_{max}",ylabel=L"D_S/J(x=0)",title="Spin Diffusion constant",size=(1.5*aps_width,aps_width),legend=:bottomright, xlims=(1.9,6.1))  # ,title="Spin Diffusion, $(lattice_type)", ylabel=L"D_S/J\;(T\to∞)"
+
+Plots.scatter!(plt5, [2], [sqrt(pi*bc1/(4*2-2-1/(4*bc1)))], label="[Kopietz1993]", markersize=10, color=:orange)
+Plots.scatter!(plt5, [2.0,3.0,4.0], [0.793,0.842,0.839]./2, label="[Morita1972]", markershape=:star, markersize=14, color=:green)
+
+Plots.scatter!(plt5, [2], [sqrt(pi*bc1/(4*3-2-1/(4*bc1)))], label=false, markersize=10, color=:orange)
+Plots.scatter!(plt5, [2.0,3.0,4.0], [0.591,0.620,0.618]./2, label=false, markershape=:star, markersize=14, color=:green)
+
+Plots.scatter!(plt5, [2.0,3.0,4.0], [0.492,0.512,0.507]./2, label=false, markershape=:star, markersize=14, color=:green)
+
+Plots.scatter!(plt5, [2,3,4,5,6], [0.39633272976014317, 0.44311346272378266, 0.41970335222826516, 0.4192399728370765, 0.41690808857603734], label="Dyn-HTE", alpha=0.7, color=:black, markersize=6)
+Plots.scatter!(plt5, [2,3,4,5], [0.2954089751508137, 0.3228543656794131, 0.30676251447626796, 0.31454842340367045], label=false, alpha=0.7, color=:black, markersize=6)
+Plots.scatter!(plt5, [2,3,4,5], [0.24579512472432255, 0.2652084044513992, 0.24762055795367333, 0.25681786636263026], label=false, alpha=0.7, color=:black, markersize=6)
+
+Plots.hline!([0.42], color=:red, linestyle=:dash, label="square", linewidth=0.8)
+Plots.hline!([0.619/2], color=:magenta, linestyle=:dash, label="simple cubic", linewidth=0.8)
+Plots.hline!([0.509/2], color=:blue, linestyle=:dash, label="bcc", linewidth=0.8)
+display(plt5)
+#savefig(plt5,"Images/SpinDiffusion_n.png")
+=#
+
+
+#=
+plt5 = Plots.plot([0],[0],label="",xlabel=L"r_{max}",ylabel=L"D_S/J(w=0)",size=(0.8*1.5*aps_width,0.8*aps_width),legend=:bottomright, xlims=(1.9,6.1), ylims=(0.25,1.05)) # title="Spin Diffusion"
+Plots.scatter!(plt5, [2,3,4,5,6], [0.9594092957640764, 0.995147257137703, 0.9813112720447729, 0.9239983658010862, 0.940292695140516], label="ladder", alpha=0.7, color=color_vec, markersize=6)
+Plots.scatter!(plt5, [2,3,4,5,6], [0.6786602297873916, 0.7039581360308462, 0.7166268745594179, 0.7151146533342323, 0.7220749266307802], label="square lattice", alpha=0.7, color=color_vec, markershape=:cross, markersize=7)
+# Plot shaded band using ribbon
+xvals = [1.9, 6.1]
+ymid = (0.98 + 0.96) / 2
+yribbon = (0.98 - 0.96) / 2
+Plots.plot!(plt5, xvals, fill(ymid, 2), ribbon=fill(yribbon, 2), fillalpha=0.2, color=color_vec[7], linestyle=:dash, label="[Pollmann2022]")
+Plots.hline!([0.95], color=color_vec[8], linestyle=:dash, label="[Reichman2018]", linewidth=0.8)
+Plots.hline!([0.72], color=:black, linestyle=:dash, label=false, linewidth=0.8)
+display(plt5)
+#savefig(plt5,"Images/SpinDiffusion_XX_n.png")
+=#
+
+
+#c_iipDyn_mat_subst = load_ciipDyn_mat_subst(0.0)
+#moments = get_moments_Gklim(c_iipDyn_mat_subst, hte_lattice, ex)
+#get_delta_vec_ext_neu(0.0,moments,r_max=5,r_min=3)
+
+
+#=
+c_iipDyn_mat_subst = load_ciipDyn_mat_subst(0.0)
+moments = get_moments_Gklim(c_iipDyn_mat_subst, hte_lattice, ex)
+moments_morita = [moments[i] * 2^(2*i) for i in eachindex(moments)]
+#println([moments[i](0.0) for i in eachindex(moments)])
+println(gauss_moments_ratio(moments,0.0))
+Plots.scatter([2,3,4,5,6],gauss_moments_ratio(moments,0.0),xlabel="r",ylabel=L"m_{d,2r}/m_{d,2r}^{\text{Gauss}}", markersize=6,label="",size=(1.5*aps_width*0.5,aps_width*0.5)) # title="moments ratio, $(lattice_type) lattice",
+display(current())
+Plots.savefig("Images/Moments_Ratio_$(lattice_type).png")
+=#
 
 
 #=

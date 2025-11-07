@@ -27,7 +27,7 @@ hte_lattice = getLattice(L,lattice_type,j1,j2,j3,j4);
 
 ### compute all correlations in the lattice (or load them)
 function load_ciipDyn_mat_subst(a::Float64;b::Float64=0.0,c::Float64=0.0)
-    fileName_c = "CaseStudy/$(lattice_type)_" * create_spin_string(spin_length) * "_c_iipDyn_nmax" * string(n_max) * "_L" * string(L) * "_a_$(a)_b_$(b)_c_$(c).jld2"
+    fileName_c = "CaseStudy/old/$(lattice_type)_" * create_spin_string(spin_length) * "_c_iipDyn_nmax" * string(n_max) * "_L" * string(L) * "_a_$(a)_b_$(b)_c_$(c).jld2"
     if isfile(fileName_c)
         println("loading "*fileName_c)
         c_iipDyn_mat_subst = 1.0 .* load_object(fileName_c)

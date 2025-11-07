@@ -43,6 +43,39 @@ function getGraphsG(spin_length::Number,max_order::Int)#::Vector{Vector{GraphG}}
     return graphsG_vec, C_Dict_vec
 end
 
+function getGraphsG_XX(spin_length::Number,max_order::Int)#::Vector{Vector{GraphG}}
+    graphsG_vec = Vector{Vector{GraphG}}(undef, max_order+1)
+    println("load GraphsG for n="*string(0))
+    graphsG_vec[1] = [GraphG(load_object("GraphFiles/GraphFiles_XX/graphs_"*string(0)*".jld2")[1].g,[1,1])]
+    for n in 1:max_order
+        fileName = "GraphFiles/GraphFiles_XX/graphsG_"*string(n)*".jld2"
+        if isfile(fileName)
+            println("load GraphsG for n="*string(n))
+            graphsG_vec[n+1] = load_object(fileName)
+            #display(gplot(graphsG_vec[n][1]))
+            #println(length(graphsG_vec[n]))
+        else
+            error("File $fileName not found for n=$n")
+        end
+    end
+
+    S = rationalize(spin_length)
+    if S == 1//2
+        S_string = "Spin_S1half"
+    elseif S == 1//1
+        S_string = "Spin_S1"
+    else
+        throw(error("Spinlength "*string(spin_length)*" is not yet implemented"))
+    end
+    #create vector of all lower order dictionaries
+    C_Dict_vec = Vector{Vector{Vector{Rational{Int128}}}}(undef,max_order+1);
+    #load dictionaries of all lower orders C_Dict_vec 
+    for ord = 0:max_order
+        C_Dict_vec[ord+1]  = load_object("GraphEvaluations/GraphEvaluations_XX/"*S_string*"/C_"*string(ord)*".jld2")
+    end
+    return graphsG_vec, C_Dict_vec
+end
+
 function load_dyn_hte_graphs(spin_length::Number,max_order::Int)::Dyn_HTE_Graphs
     S = rationalize(spin_length)
     if S == 1//2

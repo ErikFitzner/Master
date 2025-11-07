@@ -20,9 +20,9 @@ end
     verbose: if true prints progress 
     max_order: restricts expansion to a maximum order of max_order.
 """
-function get_c_iipDyn_mat(Graph,basis_positions::Vector{<:Int},hte_graphs::Vector{Vector{GraphG}}, C_Dict_vec::Vector{Vector{Vector{Rational{Int128}}}}; verbose =false, max_order = 12::Int)::Array{Vector{Vector{Tuple{Vector{Int64}, Vector{Rational{Int128}}}}}}
+function get_c_iipDyn_mat(Graph,basis_positions::Vector{<:Int},hte_graphs::Vector{Vector{GraphG}}, C_Dict_vec::Vector{Vector{Vector{Rational{Int128}}}}; verbose =false, max_order = 12::Int)::Array{Vector{Matrix{Rational{Int128}}}}
     ##preallocate output matrix 
-    GiipDyn_mat = Array{Vector{Vector{Tuple{Vector{Int64}, Vector{Rational{Int128}}}}}}(undef, nv(Graph), length(basis_positions))
+    GiipDyn_mat = Array{Vector{Matrix{Rational{Int128}}}}(undef, nv(Graph), length(basis_positions))
     max_order = min(max_order, length(C_Dict_vec)-1)
 
     ##compute correlations
@@ -45,7 +45,7 @@ end
     verbose: if true prints progress 
     max_order: restricts expansion to a maximum order of max_order.
 """
-function get_c_iipDyn_mat(hte_lattice::Dyn_HTE_Lattice, hte_graphs::Vector{Vector{GraphG}}, C_Dict_vec::Vector{Vector{Vector{Rational{Int128}}}}; verbose =false, max_order = 12)::Array{Vector{Vector{Tuple{Vector{Int64}, Vector{Rational{Int128}}}}}}
+function get_c_iipDyn_mat(hte_lattice::Dyn_HTE_Lattice, hte_graphs::Vector{Vector{GraphG}}, C_Dict_vec::Vector{Vector{Vector{Rational{Int128}}}}; verbose = false, max_order = 12)::Array{Vector{Matrix{Rational{Int128}}}}
     ##try to use lattice symmetries 
     try 
         sym_G,transl_G = getSymmetryGroup(hte_lattice.name) 
@@ -65,8 +65,8 @@ function get_c_iipDyn_mat(hte_lattice::Dyn_HTE_Lattice, hte_graphs::Vector{Vecto
     println("Calculating c_iipDyn_mat")
 
     ##preallocate output matrix 
-    GiipDyn_mat = Array{Vector{Vector{Tuple{Vector{Int64}, Vector{Rational{Int128}}}}}}(undef, lattice.length,length(hte_lattice.basis_positions)); #length(lattice.unitcell.basis)
-    reduced_Giip = Vector{Vector{Vector{Tuple{Vector{Int64}, Vector{Rational{Int128}}}}}}(undef, length(bond_vec_red))
+    GiipDyn_mat = Array{Vector{Matrix{Rational{Int128}}}}(undef, lattice.length,length(hte_lattice.basis_positions)); #length(lattice.unitcell.basis)
+    reduced_Giip = Vector{Vector{Matrix{Rational{Int128}}}}(undef, length(bond_vec_red))
 
     max_order = min(max_order,length(C_Dict_vec)-1)
 
@@ -88,25 +88,6 @@ function get_c_iipDyn_mat(hte_lattice::Dyn_HTE_Lattice, hte_graphs::Vector{Vecto
     return GiipDyn_mat
 end
 
-###### GraphG
-""" perform frequency sum over real-space dynamic correlators to obtain equal time correlators """
-function get_c_iipEqualTime_mat(c_iipDyn_mat::Matrix{Vector{Vector{Tuple{Vector{Int64}, Vector{Rational{Int128}}}}}})::Array{Vector{Vector{Tuple{Vector{Int64}, Vector{Rational{Int128}}}}}}
-    max_order_plus1 = size(c_iipDyn_mat[1,1])[1]
-    c_iipEqualTime_mat = Array{Vector{Vector{Tuple{Vector{Int64}, Vector{Rational{Int128}}}}}}(undef, length(c_iipDyn_mat[:,1]), length(c_iipDyn_mat[1,:]))
-    for j in eachindex(c_iipDyn_mat[:,1])
-        for b in eachindex(c_iipDyn_mat[1,:])
-            c_iipEqualTime_mat[j,b] = [Vector{Tuple{Vector{Int64}, Vector{Rational{Int128}}}}() for n in 1:max_order_plus1]
-            for n in 1:max_order_plus1
-                for (n_bonds, embfac) in c_iipDyn_mat[j,b][n]
-                    embfac = [sum(embfac .* [1//1,1//12,1//720,1//30240,1//1209600,1//47900160,691//1307674368000,1//74724249600,3617//10670622842880000,43867//5109094217170944000])]
-                    push!(c_iipEqualTime_mat[j,b][n],(n_bonds, embfac))
-                end
-            end
-        end
-    end
-    return c_iipEqualTime_mat
-end
-
 """ perform frequency sum over real-space dynamic correlators to obtain equal time correlators """
 function get_c_iipEqualTime_mat(c_iipDyn_mat::Matrix{Matrix{Float64}})::Array{Vector{Float64}}
     max_order_plus1 = size(c_iipDyn_mat[1,1])[1]
@@ -119,7 +100,7 @@ function get_c_iipEqualTime_mat(c_iipDyn_mat::Matrix{Matrix{Float64}})::Array{Ve
     return c_iipEqualTime_mat
 end
 
-###### bare series polynomial in Gii'(x,m) at Matsubara integer m truncated at n 
+
 """ expansion of the Matsubara correlator TGii'(iνm) as x-Polyomial for spatial entries i,ip of c_iipDyn_mat"""
 function get_TGiip_Matsubara_xpoly(c_iipDyn_mat::Array{Matrix{Float64}},i::Int,ip::Int,m::Int)
     if m==0
@@ -131,50 +112,16 @@ function get_TGiip_Matsubara_xpoly(c_iipDyn_mat::Array{Matrix{Float64}},i::Int,i
     return p_x
 end
 
-###### GraphG
-function get_TGiip_Matsubara_xpoly(c_iipDyn_mat::Matrix{Vector{Vector{Tuple{Vector{Int64}, Vector{Rational{Int128}}}}}},i::Int,ip::Int,m::Int)
-    @variables x, Δ, x1, x2, x3, x4
-    Js = (x1, x2, x3, x4)
-    max_order = size(c_iipDyn_mat[i,ip], 1) - 1
-    if m==0
-        coeffs = zeros(typeof(x1), max_order+1)
-        for n in 1:max_order+1
-            for (n_bonds, embfac) in c_iipDyn_mat[i,ip][n]
-                Jprod = prod(Js[j]^n_bonds[j] for j in 1:length(n_bonds))
-                coeffs[n] += Jprod * embfac[1]
-            end
-        end
-        p_x = sum([coeffs[n] * (-1)^(n-1) for n in 1:max_order+1]) 
-    else
-        coeffs_m = zeros(typeof(x1), max_order+1)
-        for n in 1:max_order+1
-            for (n_bonds, embfac) in c_iipDyn_mat[i,ip][n]
-                Jprod = prod(Js[j]^n_bonds[j] for j in 1:length(n_bonds))
-                coeffs_m[n] += sum([Jprod * embfac[lhalf+1]  * Δ^(2*lhalf) for lhalf in 1:9])
-            end
-        end
-        p_x = sum([coeffs_m[n] * (-1)^(n-1) for n in 1:max_order+1])
-    end
-    return p_x
-end
-
-function get_c_iipDyn_mat_subst(c_iipDyn_mat::Matrix{Vector{Vector{Tuple{Vector{Int64}, Vector{Rational{Int128}}}}}}, hte_lattice::Dyn_HTE_Lattice, α::Float64,β::Float64,γ::Float64)::Array{Matrix{Float64}}
+function get_c_iipDyn_mat_subst(c_iipDyn_mat::Array{Vector{Matrix{Rational{Int128}}}}, hte_lattice::Dyn_HTE_Lattice, α::Float64,β::Float64,γ::Float64)::Array{Matrix{Float64}}
     lattice = hte_lattice.lattice
     max_order = size(c_iipDyn_mat[1,1], 1) - 1
-    rel = (α,β,γ)
     c_iipDyn_mat_subst = Array{Matrix{Float64}}(undef, length(lattice), length(hte_lattice.basis_positions)) # length(lattice.unitcell.basis)
     for b in 1:length(hte_lattice.basis_positions)  # length(lattice.unitcell.basis)
         for i in 1:length(lattice)
             coeffs = [zeros(Float64, 10) for _ in 1:max_order+1]
             for n in 1:max_order+1
-                for (n_bonds, embfac) in c_iipDyn_mat[i,b][n]
-                    if length(n_bonds) == 1
-                        coeffs[n] += embfac
-                    else
-                        Jprod = prod(rel[j-1]^n_bonds[j] for j in 2:length(n_bonds))
-                        coeffs[n] += Jprod * embfac
-                    end
-                end
+                factors = [α^j for j in n-1:-1:0]
+                coeffs[n] = vec(factors' * c_iipDyn_mat[i,b][n])
             end
             coeffs = reduce(vcat, coeffs')
             c_iipDyn_mat_subst[i,b] = coeffs
@@ -899,7 +846,6 @@ function find_divergence_point(f1, f2, epsilon; x_min=0.0, x_max=10.0, step=0.01
     return nothing  # No divergence found in the interval
 end
 
-
 function plotgraphG(n::Int64)
     fileName="GraphFiles/graphsG_"*string(n)*".jld2"
     gG_vec = load_object(fileName)
@@ -929,3 +875,85 @@ function subvalue(result::Num, a::Float64)
     f_num = Symbolics.build_function(subs_expr_val, x1; expression=Val{false})
     return f_num
 end
+
+function gauss_moments_ratio(moments,x)
+    σ = moments[2](x)/moments[1](x)
+    ratios = [moments[2](x)/σ,moments[3](x)/(3*σ^2),moments[4](x)/(15*σ^3),moments[5](x)/(105*σ^4),moments[6](x)/(945*σ^5)]./moments[1](x)  # (2k-1)!!
+    return ratios
+end
+
+#################################################################
+###### old versions of some functions for testing and comparison
+#################################################################
+
+function get_c_iipDyn_mat_subst_old(c_iipDyn_mat::Matrix{Vector{Vector{Tuple{Vector{Int64}, Vector{Rational{Int128}}}}}}, hte_lattice::Dyn_HTE_Lattice, α::Float64,β::Float64,γ::Float64)::Array{Matrix{Float64}}
+    lattice = hte_lattice.lattice
+    max_order = size(c_iipDyn_mat[1,1], 1) - 1
+    rel = (α,β,γ)
+    c_iipDyn_mat_subst = Array{Matrix{Float64}}(undef, length(lattice), length(hte_lattice.basis_positions)) # length(lattice.unitcell.basis)
+    for b in 1:length(hte_lattice.basis_positions)  # length(lattice.unitcell.basis)
+        for i in 1:length(lattice)
+            coeffs = [zeros(Float64, 10) for _ in 1:max_order+1]
+            for n in 1:max_order+1
+                for (n_bonds, embfac) in c_iipDyn_mat[i,b][n]
+                    if length(n_bonds) == 1
+                        coeffs[n] += embfac
+                    else
+                        Jprod = prod(rel[j-1]^n_bonds[j] for j in 2:length(n_bonds))
+                        coeffs[n] += Jprod * embfac
+                    end
+                end
+            end
+            coeffs = reduce(vcat, coeffs')
+            c_iipDyn_mat_subst[i,b] = coeffs
+        end
+    end
+    #println("subst = $(c_iipDyn_mat_subst)")
+    return c_iipDyn_mat_subst
+end
+
+""" perform frequency sum over real-space dynamic correlators to obtain equal time correlators """
+function get_c_iipEqualTime_mat_old(c_iipDyn_mat::Matrix{Vector{Vector{Tuple{Vector{Int64}, Vector{Rational{Int128}}}}}})::Array{Vector{Vector{Tuple{Vector{Int64}, Vector{Rational{Int128}}}}}}
+    max_order_plus1 = size(c_iipDyn_mat[1,1])[1]
+    c_iipEqualTime_mat = Array{Vector{Vector{Tuple{Vector{Int64}, Vector{Rational{Int128}}}}}}(undef, length(c_iipDyn_mat[:,1]), length(c_iipDyn_mat[1,:]))
+    for j in eachindex(c_iipDyn_mat[:,1])
+        for b in eachindex(c_iipDyn_mat[1,:])
+            c_iipEqualTime_mat[j,b] = [Vector{Tuple{Vector{Int64}, Vector{Rational{Int128}}}}() for n in 1:max_order_plus1]
+            for n in 1:max_order_plus1
+                for (n_bonds, embfac) in c_iipDyn_mat[j,b][n]
+                    embfac = [sum(embfac .* [1//1,1//12,1//720,1//30240,1//1209600,1//47900160,691//1307674368000,1//74724249600,3617//10670622842880000,43867//5109094217170944000])]
+                    push!(c_iipEqualTime_mat[j,b][n],(n_bonds, embfac))
+                end
+            end
+        end
+    end
+    return c_iipEqualTime_mat
+end
+
+###### GraphG
+function get_TGiip_Matsubara_xpoly_old(c_iipDyn_mat::Matrix{Vector{Vector{Tuple{Vector{Int64}, Vector{Rational{Int128}}}}}},i::Int,ip::Int,m::Int)
+    @variables x, Δ, x1, x2, x3, x4
+    Js = (x1, x2, x3, x4)
+    max_order = size(c_iipDyn_mat[i,ip], 1) - 1
+    if m==0
+        coeffs = zeros(typeof(x1), max_order+1)
+        for n in 1:max_order+1
+            for (n_bonds, embfac) in c_iipDyn_mat[i,ip][n]
+                Jprod = prod(Js[j]^n_bonds[j] for j in 1:length(n_bonds))
+                coeffs[n] += Jprod * embfac[1]
+            end
+        end
+        p_x = sum([coeffs[n] * (-1)^(n-1) for n in 1:max_order+1]) 
+    else
+        coeffs_m = zeros(typeof(x1), max_order+1)
+        for n in 1:max_order+1
+            for (n_bonds, embfac) in c_iipDyn_mat[i,ip][n]
+                Jprod = prod(Js[j]^n_bonds[j] for j in 1:length(n_bonds))
+                coeffs_m[n] += sum([Jprod * embfac[lhalf+1]  * Δ^(2*lhalf) for lhalf in 1:9])
+            end
+        end
+        p_x = sum([coeffs_m[n] * (-1)^(n-1) for n in 1:max_order+1])
+    end
+    return p_x
+end
+####################################################

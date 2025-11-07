@@ -115,7 +115,7 @@ end
 mutable struct Dyn_HTE_Lattice
     name::String
     lattice::Lattice
-    graph::SimpleWeightedGraph
+    graph::SimpleWeightedGraph{Int,Int}
     basis_positions::Vector{<:Int}
 end
 
