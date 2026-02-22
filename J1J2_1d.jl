@@ -175,7 +175,7 @@ end
 if true
 ###SPIN STRUCTURE FACTOR HEATMAPS
 using CairoMakie
-x = 2.0                #define temperature (x=J/T)
+x = 0.0                #define temperature (x=J/T)
 a = 0.45                #define J2/J1
 b = 0.0                #define J3/J1
 c = 0.0                #define J4/J1
@@ -197,7 +197,7 @@ if isfile(fileName_c)
 else
     println("substituting c_iipDyn_mat with a=$(a), b=$(b), c=$(c)")
     c_iipDyn_mat_subst = get_c_iipDyn_mat_subst(c_iipDyn_mat,hte_lattice,a,b,c);
-    save_object(fileName_c,c_iipDyn_mat_subst)
+    #save_object(fileName_c,c_iipDyn_mat_subst)
 end
 
 #println(get_TGiip_Matsubara_xpoly(c_iipDyn_mat_subst, 1, 2, 0)) #test if substitution worked

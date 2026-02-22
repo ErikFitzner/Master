@@ -542,7 +542,7 @@ function count_subgraphisomorph_by_J2(
     n = size(m)[1]
 
     ### need to convert in multigraph language
-    gg =Vector{Int}[]
+    gg = Vector{Int}[]
     for src in 1:n-1
         dests = Int[]
         for dest in src+1:n
@@ -553,14 +553,13 @@ function count_subgraphisomorph_by_J2(
         append!(gg,[dests])
     end
 
-    #result = zeros(Int,44)
     result = zeros(Int,order)
-    bond_counts = zeros(Int, length(n_bonds))
+    bond_counts = zeros(Int,length(n_bonds))
 
     function callback(vmap::Vector{Int})::Bool
         fill!(bond_counts,0)
         for u in eachindex(gg)
-            for v in gg[u] #vertices(g2), v in neighbors(g2, u)
+            for v in gg[u] # vertices(g2), v in neighbors(g2, u)
                 if u < v  # avoid double-counting edges
                     w = g1.weights[vmap[u], vmap[v]]
                     bond_counts[w] += 1

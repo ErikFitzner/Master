@@ -65,7 +65,7 @@ end
 #########################################################################################
 ###### Dynamic structure factor (DSF) ###################################################
 #########################################################################################
-if false
+if true
     # for loop with multiple J2/J1
     #k_pihalf = []
     #a_vec = 1 ./ [0.25,0.5,0.63]
@@ -73,7 +73,7 @@ if false
 
     #substitute specific values for x2,x3,x4 to reduce to the previous form of c_iipDyn_mat
     #for i in 1:length(a_vec)
-    a = 1.6 # J_2/J_1
+    a = 1.0 # J_2/J_1
     #a = a_vec[i]
     b = 0.0
     c = 0.0
@@ -211,7 +211,7 @@ if false
 end
 
 ###### plot JS(k,ω)
-if false
+if true
     using CairoMakie
 
     fig = Figure(fontsize=8,size=(aps_width,0.6*aps_width));

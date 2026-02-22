@@ -3,7 +3,7 @@ using Random, Parameters, JLD2
 using Graphs, SimpleWeightedGraphs
 using SparseArrays, Combinatorics, LinearAlgebra
 using GraphRecipes,Plots
-plt_empty = plot(label="",axis=([], false))
+plt_empty = Plots.plot(label="",axis=([], false))
 graphsInRow = 6 #for plotting
 
 include("Structs.jl")

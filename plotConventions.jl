@@ -1,5 +1,5 @@
-using Plots, LaTeXStrings, ColorSchemes
-pyplot()    #using gr plotting backend
+using Plots, LaTeXStrings, ColorSchemes, Colors
+pyplot()    # using gr plotting backend
 Plots.default(titlefont=(10,), legendfontsize=8, background_color_legend=nothing, foreground_color_legend=nothing,
 grid=false, guidefont=(9,), tickfont=(9,), framestyle=:box, linewidth=1,markerstrokewidth=0,markersize=3.5,markeralpha=0.9, dpi=200)
 aps_width = 325 #in pixels, seems to work with pyplot backend  (243 # width of single-colum plot in points, it assumes internally dpi=100 (so we set this above), but this does not limit the resolution since we later save as pdf
@@ -12,6 +12,11 @@ marker_vec = [:dot,:cross,:diamond,:dtriangle,:square,:star4,:utriangle]
 linestyle_vec = [:solid, :dash, :dot, :dashdot, :solid, :dash, :dot, :dashdot]
 
 plt_empty = Plots.plot([0,0],[0,0],label="")
+
+function saturation_palette(N; h=240, v=1.0, s_min=0.2, s_max=1.0)
+    ss = range(s_min, s_max; length=N)
+    return [RGB(HSV(h, s, v)) for s in ss]
+end
 
 function addABC(plt,label);
     """ adds "label" on the top left of plot axes """

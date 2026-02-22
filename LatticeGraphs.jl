@@ -46,7 +46,7 @@ function get_finite_Lattice(L::Int,geometry::String, j1::Bool, j2::Bool, j3::Boo
     M3 = c*M
     M4 = d*M
 
-    if geometry == "dimer" ### chain lattice
+    if geometry == "dimer"
         a1 = (1, 0)
         a2 = (0, 1)
 
@@ -58,7 +58,7 @@ function get_finite_Lattice(L::Int,geometry::String, j1::Bool, j2::Bool, j3::Boo
 
         l = (1,1)
     
-    elseif geometry == "chain" ### chain lattice
+    elseif geometry == "chain"
         a1 = (1, 0)
         a2 = (0, 1)
 
@@ -79,7 +79,7 @@ function get_finite_Lattice(L::Int,geometry::String, j1::Bool, j2::Bool, j3::Boo
 
         l = (L,1)
 
-    elseif geometry == "ladder" ### ladder lattice
+    elseif geometry == "ladder"
         a1 = (1, 0)
         a2 = (0, 1)
 
@@ -96,7 +96,7 @@ function get_finite_Lattice(L::Int,geometry::String, j1::Bool, j2::Bool, j3::Boo
 
         l = (L,1)
 
-    elseif geometry == "square" ### Square lattice
+    elseif geometry == "square"
         a1 = (1, 0)
         a2 = (0, 1)
         uc = UnitCell(a1,a2)
@@ -112,11 +112,11 @@ function get_finite_Lattice(L::Int,geometry::String, j1::Bool, j2::Bool, j3::Boo
         addInteraction!(uc, b0, b0, M2, (-1, 1))
 
         #=
-        # Third neighbors (J3, along axes, distance 2)
+        # Third neighbors
         addInteraction!(uc, b0, b0, M3, (2, 0))
         addInteraction!(uc, b0, b0, M3, (0, 2))
 
-        # Fourth neighbors (J4, diagonals at distance sqrt(5))
+        # Fourth neighbors)
         addInteraction!(uc, b0, b0, M4, (2, 1))
         addInteraction!(uc, b0, b0, M4, (1, 2))
         addInteraction!(uc, b0, b0, M4, (-2, 1))
@@ -124,6 +124,19 @@ function get_finite_Lattice(L::Int,geometry::String, j1::Bool, j2::Bool, j3::Boo
         =#
 
         l = (L, L)
+
+
+    elseif geometry == "aniso_square" ### anisotropic square lattice
+        a1 = (1, 0)
+        a2 = (0, 1)
+        uc = UnitCell(a1,a2)
+
+        b0 = addBasisSite!(uc, (0.0, 0.0))
+
+        addInteraction!(uc, b0, b0, M1, (1, 0))
+        addInteraction!(uc, b0, b0, M2, (0, 1))
+
+        l = (L, L)    
 
 
     elseif geometry == "Shastry-Sutherland"
@@ -202,8 +215,7 @@ function get_finite_Lattice(L::Int,geometry::String, j1::Bool, j2::Bool, j3::Boo
         l = (L, L)
 
 
-    elseif geometry == "cluster4"
-        # Cluster of 4 spins with all-to-all interactions
+    elseif geometry == "cluster4" # Cluster of 4 spins with all-to-all interactions
         a1 = (1, 0)
         a2 = (0, 1)
         uc = UnitCell(a1, a2)
@@ -320,7 +332,22 @@ function get_finite_Lattice(L::Int,geometry::String, j1::Bool, j2::Bool, j3::Boo
         addInteraction!(uc, b3, b2, M1, (0, 0))
         addInteraction!(uc, b3, b2, M1, (1, 1))
 
-        
+        # next-nearest neighbor
+        addInteraction!(uc, b1, b3, M2, (1, 0))
+        addInteraction!(uc, b1, b2, M2, (0, -1))
+        addInteraction!(uc, b1, b2, M2, (1, 1))
+        addInteraction!(uc, b3, b1, M2, (1, 1))
+
+        # third neighbor
+        addInteraction!(uc, b1, b1, M3, (1, 0))
+        addInteraction!(uc, b1, b1, M3, (0, -1))
+        addInteraction!(uc, b1, b1, M3, (1, 1))
+        addInteraction!(uc, b2, b2, M3, (1, 0))
+        addInteraction!(uc, b2, b2, M3, (0, -1))
+        addInteraction!(uc, b2, b2, M3, (1, 1))
+        addInteraction!(uc, b3, b3, M3, (1, 0))
+        addInteraction!(uc, b3, b3, M3, (0, -1))
+        addInteraction!(uc, b3, b3, M3, (1, 1))        
 
         l = (L, L)
 
@@ -486,7 +513,7 @@ function getLattice(L::Int,geometry::String, j1::Bool, j2::Bool, j3::Bool,j4::Bo
 
     # Calculate the shortest path distances from each center vertex to all other vertices
     # Convert to unweighted graph for distance calculation
-    LatGraph_unweighted = toSimpleGraph(LatGraph) # LatGraph
+    LatGraph_unweighted = toSimpleGraph(LatGraph) # use LatGraph if L2=L
     distances = [dijkstra_shortest_paths(LatGraph_unweighted, center_vertices[i]).dists for i = 1:basis]
 
     # Identify vertices that are farther away than a threshold distance `L`

@@ -5,26 +5,24 @@ include("LatticeGraphs.jl")
 include("Embedding.jl")
 include("ConvenienceFunctions.jl") 
 
-@variables x1 x2
+@variables x1 x2 δ
 
-### load graph evaluations
+### prepare lattice ####
 spin_length = 1/2
-n_max = 6
+n_max = 12
+L = 12
+lattice_type = "square"
 
-### prepare lattice
-lattice_type = "simple_cubic" #"Shastry-Sutherland"
-
+# TODO properly implement J3,J4 interactions as well, both in "get_finite_Lattice" and in overall logic
 # Are there J1, J2, J3, J4 interactions?
 j1 = true
 j2 = true
 j3 = false
 j4 = false
 
-L = 6
-
 hte_lattice = getLattice(L,lattice_type,j1,j2,j3,j4);
 
-### plot lattice
+#### plot lattice: different bond colors for J1,J2,J3,J4 ####
 if false
     weights = hte_lattice.graph.weights
     # Assign a color for each bond weight: 1=blue, 2=red, 3=green, 4=orange, else=gray
@@ -33,8 +31,8 @@ if false
     display(graphplot(hte_lattice.graph, names=1:nv(hte_lattice.graph), markersize=0.2, fontsize=8, nodeshape=:rect, curves=false, edgecolor=edge_colors))
 end
 
-### compute all correlations in the lattice (or load them)
-if false
+#### compute all correlations in the lattice (or load them) ####
+if true
     fileName_c = "CaseStudy/$(lattice_type)_" * create_spin_string(spin_length) * "_c_iipDyn_nmax" * string(n_max) * "_L" * string(L) * "_J1_$(1*j1)_J2_$(1*j2)_J3_$(1*j3)_J4_$(1*j4).jld2"
     if isfile(fileName_c)
         println("loading "*fileName_c)
@@ -46,51 +44,40 @@ if false
     end
 end
 
-#test = load_object("CaseStudy/Triangular_Lattice/Triangular_Lattice_" * create_spin_string(spin_length) * "_c_iipDyn_nmax" * string(12) * "_L" * string(12) * ".jld2")
-#println("test = $(test[1,1])")
 
-#println(size(c_iipDyn_mat))
-#println(c_iipDyn_mat[1,1])
+#########################################################################################
+#### Symbolic results: x1=J1/T, x2=J2/T=(J2/J1)*x1 ####
+#c_iipDyn_mat_symbolic = get_c_iipDyn_mat_symbolic(c_iipDyn_mat,hte_lattice)
 
-#result = get_TGiip_Matsubara_xpoly(c_iipDyn_mat,36,1,0)
+#### test single Matsubara correlation function ####
+#i = 1
+#iprime = 1
+#m = true  # m=0?
+#result = get_TGiip_Matsubara_xpoly_symbolic(c_iipDyn_mat_symbolic,i,iprime,m,n_max)
 #println("result = $(result)")
 
-#c_iipEqualTime_mat = get_c_iipEqualTime_mat(c_iipDyn_mat)
-#result_suscept = sum([get_TGiip_Matsubara_xpoly(c_iipEqualTime_mat, j, 1, 0) for j in 1:hte_lattice.lattice.length])
-#println("uniform susceptebility = $(result_suscept)")
+#### test uniform susceptibility ####
+#c_iipEqualTime_mat = get_c_iipEqualTime_mat_symbolic(c_iipDyn_mat_symbolic)
+#result_suscept = sum([get_TGiip_Matsubara_xpoly_symbolic(c_iipEqualTime_mat, j, 1, true, n_max) for j in 1:hte_lattice.lattice.length])
+#println("uniform susceptebility = $(expand(result_suscept))")
+
+#### substitute x2 ####
 #expr_sub = substitute(result_suscept, Dict(x2 => 0))
 #println("uniform susceptibility (x2=0) = $(expr_sub)")
+#########################################################################################
 
-if false
-a = 0.2 #J2/J1
-f_num = subvalue(result_suscept,a)
-xs1 = range(0.5, 2, length=200)
-xs2 = range(0.5, 10, length=200)
-ys = [f_num(x) for x in xs1]
-y_pade = robustpade(f_num,6,6).(xs2)
-
-Plots.plot(1 ./ xs1, ys, xlabel=L"T/J", ylabel="χ", title=L"J_2/J_1="*string(a), label="x-Series")
-#Plots.plot!(1 ./ xs2, y_pade, color="orange", linestyle=:dash, alpha=0.7, label="Pade")
-display(current())
-end
 
 #########################################################################################
 ###### Dynamic structure factor (DSF) ###################################################
 #########################################################################################
+# Note: For the "chain" geometry, the case a=0 cretes problems 
 if true
-    # for loop with multiple J2/J1
-    #k_pihalf = []
-    #a_vec = 1 ./ [0.5,0.8,1.0]
-    #f_vec = [0.7,0.5,0.5]
+    #### substitute specific values for x2,x3,x4 to reduce to the previous form of c_iipDyn_mat ####
+    a = 1.0 # J_2/J_1
+    b = 0.0 # J_3/J_1
+    c = 0.0 # J_4/J_1
 
-    #substitute specific values for x2,x3,x4 to reduce to the previous form of c_iipDyn_mat
-    #for i in 1:length(a_vec)
-    a = 0.0 # J_2/J_1
-    #a = a_vec[i]
-    b = 0.0
-    c = 0.0
-
-    sc = sqrt(1+a^2+b^2+c^2) # scale to w/J and JS
+    sc = sqrt(1+a^2+b^2+c^2) # J/J1 --> scale to w/J and JS
     
     fileName_c = "CaseStudy/$(lattice_type)_" * create_spin_string(spin_length) * "_c_iipDyn_nmax" * string(n_max) * "_L" * string(L) * "_a_$(a)_b_$(b)_c_$(c).jld2"
     if isfile(fileName_c)
@@ -101,8 +88,8 @@ if true
         c_iipDyn_mat_subst = get_c_iipDyn_mat_subst(c_iipDyn_mat,hte_lattice,a,b,c);
         save_object(fileName_c,c_iipDyn_mat_subst)
     end
-    
-    ###### check moments
+
+    #### check moments ####
     if false
         #(we will calculate the first four moments at fixed k)
         k = pi  #define fixed k 
@@ -138,7 +125,7 @@ if true
         #Plots.plot!(plt_m,[0],[0],label="Padé [6-r,6-r]",color = "grey",linestyle = linestyle_vec[4])
         for i=1:4
             Plots.plot!(plt_m,[0],[0],label="r="*string(i-1),color = color_vec[i])
-            Plots.plot!(plt_m,x_vec[1:180],m_vec_times_x[i].(x_vec[1:180])./(m_vec[i](0)),label = "",alpha= 0.7,color = color_vec[i],linestyle = linestyle_vec[1],linewidth=0.5)
+            Plots.plot!(plt_m,x_vec[1:150],m_vec_times_x[i].(x_vec[1:150])./(m_vec[i](0)),label = "",alpha= 0.7,color = color_vec[i],linestyle = linestyle_vec[1],linewidth=0.5)
             Plots.plot!(plt_m,x_vec,m_vec_times_x_extrapolated_u_pade1[i].(tanh.(f.*x_vec))./(m_vec[i](0)),label = "",alpha= 0.5,color = color_vec[i],linestyle = linestyle_vec[2],linewidth=0.5)
             Plots.plot!(plt_m,x_vec,m_vec_times_x_extrapolated_u_pade2[i].(tanh.(f.*x_vec))./(m_vec[i](0)),label = "",alpha= 1,color = color_vec[i],linestyle = linestyle_vec[3],linewidth=0.5)
             #Plots.plot!(plt_m,x_vec,x_vec.*m_vec_extrapolated_pade[i].(x_vec)./(m_vec_extrapolated_pade[i](0.0001)),label = "",alpha= 1,color = color_vec[i],linestyle = linestyle_vec[4],linewidth=0.5)
@@ -148,64 +135,46 @@ if true
         ##############
         display(plt_m)
     end
-    if true
-    w_vec = collect(0.0:0.025:3.5) #3.5
-    r_max = 2                
-    f = 0.2  #a=0.0-->f=0.7,a=1.0-->f=,a=1.25-->f=0.7,a=2.0-->f=0.5?
-    #f = f_vec[i]
-    ufromx_mat = get_LinearTrafoToCoeffs_u(n_max+1,f)
-    poly_x = Polynomial([0,1],:x)
 
+    #### compute JS(k,ω) ####
+    w_vec = collect(0.0:0.025:3.5*sc)               
     x = 2.0  # J/T
     x0 = x/sc  # J1/T
-    u0 = tanh.(f .* x0)
+    f = 0.7
+    r_max = 3
 
-    ### define and generate k-path 
-    #path = [(pi/2,pi/2),(pi,0),(pi,pi),(pi/2,pi/2),(0.001,0.001),(pi,0)]
-    #pathticks = ["(π/2,π/2)","(π,0)","(π,π)","(π/2,π/2)","(0,0)","(π,0)"]
+    #### define and generate k-path ####
+    #path = [(0.001,0.0),(pi,0),(1.999*pi,0)]
+    #pathticks = ["0","π","2π"]
 
-    path = [(0.001,0.001,0.001),(pi,0.001,0.001),(pi,pi,0.001),(pi,pi,pi),(pi/2,pi/2,pi/2),(0.001,0.001,0.001)]
-    pathticks = ["(0,0,0)","(π,0,0)","(π,π,0)","(π,π,π)","(π/2,π/2,π/2)","(0,0,0)"]
+    path = [(pi/2,pi/2),(pi,0),(pi,pi),(pi/2,pi/2),(0.001,0.001),(pi,0)]
+    pathticks = ["(π/2,π/2)","(π,0)","(π,π)","(π/2,π/2)","(0,0)","(π,0)"]
 
-    Nk = 75  #75
+    #path = [(4*pi/3,0),(0.001,0.001)]
+    #pathticks = ["(4π/3,0)","(0,0)"]
+
+    #path = [(0.001,0.001,0.001),(pi,0.001,0.001),(pi,pi,0.001),(pi,pi,pi),(pi/2,pi/2,pi/2),(0.001,0.001,0.001)]
+    #pathticks = ["(0,0,0)","(π,0,0)","(π,π,0)","(π,π,π)","(π/2,π/2,π/2)","(0,0,0)"]
+
+
+    Nk = 75
     k_vec,kticks_positioins = create_brillouin_zone_path(path, Nk)
-    JSkw_mat = zeros(Nk+1,length(w_vec))
-
-    ### fill JSkw_mat
-    for k_pos in eachindex(k_vec)
-        k = k_vec[k_pos]
-        c_kDyn = get_c_k(k,c_iipDyn_mat_subst,hte_lattice)
-        m_vec = get_moments_from_c_kDyn(c_kDyn)
-        m0 = Float64[]
-
-        for r in 0:r_max
-            xm_norm_r = coeffs(poly_x * (m_vec[1+r]/m_vec[1+r](0)))
-            p_u = Polynomial(ufromx_mat[1:n_max+2-2*r,1:n_max+2-2*r]*xm_norm_r)
-            
-            push!(m0,m_vec[1+r](0)/x0 * get_pade(p_u,7-r,6-r)(u0))
-        end
-        
-        δ_vec,r_vec = fromMomentsToδ(m0)
-        δ_vec_ext = extrapolate_δvec(δ_vec,length(δ_vec)-1,length(δ_vec)-1,2000,true)
-        JSkw_mat[k_pos,:] = [JS(δ_vec_ext,1.0*x0,w,0.02) for w in w_vec]
-    end
-    #push!(k_pihalf,JSkw_mat[1,:]) #[1, 14, 32, 45, 58, 76]
-    end
-    #end
+    
+    JSkw_mat = get_JSkw_mat_neu("u_pade",x0,k_vec,w_vec,c_iipDyn_mat_subst,hte_lattice,f=f)
 end
 
-###### plot JS(k,ω)
-if false
+#### plot JS(k,ω) ####
+if true
     using CairoMakie
 
     fig = Figure(fontsize=8,size=(aps_width,0.6*aps_width));
     ax=Axis(fig[1,1],xlabel=L"\mathbf{k}",ylabel=L"\omega/J=w",xlabelsize=8,ylabelsize=8);
-    hm=CairoMakie.heatmap!(ax,collect(0:Nk)/(Nk),w_vec ./ sc, JSkw_mat .* sc,colormap=:viridis,colorrange=(0.001,2.0),highclip=:white); #0.4
+    hm=CairoMakie.heatmap!(ax,collect(0:Nk)/(Nk),w_vec ./ sc, JSkw_mat .* sc,colormap=:viridis,colorrange=(0.001,0.4),highclip=:white); #0.4
     ax.xticks = ((kticks_positioins .- 1)/(Nk),pathticks)
     CairoMakie.Colorbar(fig[:, end+1], hm,size=8, label = L"J S(\mathbf{k},\omega)")
-    CairoMakie.text!(ax,"x=J/T="*string(x),position=[(0.05,0.8/sc)],color=:white)
-    CairoMakie.text!(ax,"J2/J1="*string(a),position=[(0.05,0.5/sc)],color=:white)
-    CairoMakie.text!(ax,"f=$f",position=[(0.05,0.2/sc)],color=:white)
+    CairoMakie.text!(ax,"x=J/T="*string(x),position=[(0.05,0.8)],color=:white)
+    CairoMakie.text!(ax,"J2/J1="*string(a),position=[(0.05,0.5)],color=:white)
+    CairoMakie.text!(ax,"f=$f",position=[(0.05,0.2)],color=:white)
 
     resize_to_layout!(fig);
     display(fig)
@@ -213,39 +182,27 @@ if false
     #save("Images/$(lattice_type)_JSkw_a_$(a).png",fig; px_per_unit=6.0)
 end
 
-###### plot w slice
+#### plot w slice ####
 if false
-    slice = 81  #[1,21,41,81]
+    slice = 81
     wslice = w_vec[slice]
-    #println(wslice)
     fig = Figure(fontsize=8,size=(aps_width,0.6*aps_width));
     ax=Axis(fig[1,1],xlabel=L"\mathbf{k}",ylabel=L"JS(k,\omega)",xlabelsize=8,ylabelsize=8, title="$(lattice_type), w=$(wslice)");
     lines!(ax,collect(0:Nk) ./ Nk,JSkw_mat[:,slice].*sc)
     ax.xticks = ((kticks_positioins .- 1) ./ Nk,pathticks)
     display(fig)
-    save("Images/$(lattice_type)_wslice_$(wslice).png",fig; px_per_unit=6.0)
+
+    #save("Images/$(lattice_type)_wslice_$(wslice).png",fig; px_per_unit=6.0)
 end
 
-###### plot k slice
+#### plot k slice ####
 if false
-    slice = 40  #[1, 14, 32, 45, 58, 76]
+    slice = 40
     kslice = k_vec[slice]
-    #println(kslice)
     fig = Figure(fontsize=8,size=(aps_width,0.6*aps_width));
-    ax=Axis(fig[1,1],xlabel=L"\omega/J",ylabel=L"JS(k,\omega)",xlabelsize=8,ylabelsize=8, title="$(lattice_type), k=$(kslice)");
+    ax=Axis(fig[1,1],xlabel=L"\omega/J",ylabel=L"JS(k,\omega)",xlabelsize=8,ylabelsize=8, title="$(lattice_type), k=($(round(kslice[1],digits=2)),$(round(kslice[2],digits=2)))");
     lines!(ax,w_vec./sc,JSkw_mat[slice,:].*sc)
     display(fig)
-    #save("Images/$(lattice_type)_wslice_$(kslice).png",fig; px_per_unit=6.0)
-end
 
-###### plot k slice for different a
-if false
-    a_vec = 1 ./ [0.5,0.8,1.0]
-    w_vec = collect(0.0:0.025:3.5)
-    plt = Plots.plot(xlabel=L"\omega/J",ylabel=L"JS(k,\omega)",legend=:topleft)
-    for i in 1:length(k_pihalf)
-    Plots.plot!(plt,w_vec./sc,k_pihalf[i].*sc,label=L"J_2/J_1="*string(a_vec[i])*", "*L"k=(\pi/2,\pi/2)")
-    end
-    display(plt)
-    #savefig(plt,"Images/Shastry-Sutherland_(pihalf,pihalf).png")
+    #save("Images/$(lattice_type)_wslice_$(kslice).png",fig; px_per_unit=6.0)
 end

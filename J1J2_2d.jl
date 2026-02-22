@@ -1,5 +1,6 @@
 using JLD2, DelimitedFiles, SimpleWeightedGraphs, Plots, Symbolics
-#using Profile, ProfileView
+using CairoMakie
+
 include("plotConventions.jl")
 include("LatticeGraphs.jl")
 include("Embedding.jl")
@@ -12,7 +13,6 @@ include("ConvenienceFunctions.jl")
 ### load graph evaluations
 spin_length = 1/2
 n_max = 12
-
 ### prepare lattice
 lattice_type = "square"
 
@@ -24,7 +24,8 @@ j4 = false
 
 L = 12
 
-hte_lattice = getLattice(L,lattice_type,j1,j2,j3,j4);
+hte_lattice = getLattice(L,"square",j1,j2,j3,j4);
+#println(hte_lattice.basis_positions)
 
 ### plot lattice
 if false
@@ -43,11 +44,25 @@ if false
         c_iipDyn_mat = load_object(fileName_c)
     else
         hte_graphs, C_Dict_vec = getGraphsG(spin_length,n_max)
-        #Profile.clear()
-        c_iipDyn_mat = get_c_iipDyn_mat(hte_lattice,hte_graphs,C_Dict_vec); # @profile 
-        #ProfileView.view()
+        c_iipDyn_mat = get_c_iipDyn_mat(hte_lattice,hte_graphs,C_Dict_vec);
         #save_object(fileName_c,c_iipDyn_mat)
     end
+end
+
+function load_ciipDyn_mat_subst(a::Float64;b::Float64=0.0,c::Float64=0.0)
+    fileName_c = "CaseStudy/$(lattice_type)_" * create_spin_string(spin_length) * "_c_iipDyn_nmax" * string(n_max) * "_L" * string(L) * "_a_$(a)_b_$(b)_c_$(c).jld2"
+    if isfile(fileName_c)
+        println("loading "*fileName_c)
+        c_iipDyn_mat_subst = 1.0 .* load_object(fileName_c)
+    else
+        println("substituting c_iipDyn_mat with a=$(a), b=$(b), c=$(c)")
+        fileName_c2 = "CaseStudy/$(lattice_type)_" * create_spin_string(spin_length) * "_c_iipDyn_nmax" * string(n_max) * "_L" * string(L) * "_J1_$(1*j1)_J2_$(1*j2)_J3_$(1*j3)_J4_$(1*j4).jld2"
+        c_iipDyn_mat = load_object(fileName_c2)
+        c_iipDyn_mat_subst = 1.0 .* get_c_iipDyn_mat_subst(c_iipDyn_mat,hte_lattice,a,b,c);
+        save_object(fileName_c,c_iipDyn_mat_subst)
+    end
+
+    return c_iipDyn_mat_subst
 end
 
 #test = load_object("CaseStudy/Triangular_Lattice/Triangular_Lattice_" * create_spin_string(spin_length) * "_c_iipDyn_nmax" * string(12) * "_L" * string(12) * ".jld2")
@@ -59,23 +74,65 @@ end
 #result = get_TGiip_Matsubara_xpoly(c_iipDyn_mat,36,1,0)
 #println("result = $(result)")
 
-#c_iipEqualTime_mat = get_c_iipEqualTime_mat(c_iipDyn_mat)
+#=
+j = 239 #square: 314,339, ladder: 30,31, chain: 26,27, 240, 239
+c_iipDyn_mat_subst = load_ciipDyn_mat_subst(1.0) #0.0
+c_iipEqualTime_mat = get_c_iipEqualTime_mat(c_iipDyn_mat_subst)
+println(getSitePosition(hte_lattice.lattice,j).-getSitePosition(hte_lattice.lattice,211))
+#println(c_iipEqualTime_mat[j,1])
+x_vec = 0:0.01:2.0  #2.3 #2.1
+Plots.plot(x_vec,Polynomial(c_iipEqualTime_mat[j,1]).(x_vec),xlabel=L"J/T",ylabel=L"\langle S^z_0S^z_\mathbf{r}\rangle=\langle(\hat{n}_0-1/2)(\hat{n}_\mathbf{r}-1/2)\rangle",label="bare series " * L"\mathbf{r}=(1,0)",size=(0.8*1.5*aps_width,0.8*aps_width),legend=:topright,color=color_vec[1],xlims=(-0.2,4.2)) #,ylims=(-0.045,0.005), xticks = ([0, 0.65, 1, 2, 3, 4], ["0", "0.65", "1", "2", "3", "4"]), yticks = ([0.00, -0.006, -0.01, -0.02, -0.03, -0.04], ["0.00", "–0.006", "-0.01", "-0.02", "-0.03", "-0.04"]))  #L"\langle S^z_i S^z_j \rangle_{NN}"
+f = 0.75 # 0.75
+ufromx_mat = get_LinearTrafoToCoeffs_u(n_max,f)
+x_vec2 = 0:0.01:4.5  #4.5
+u_vec = tanh.(f .* x_vec2)
+p_u = Polynomial(ufromx_mat*c_iipEqualTime_mat[j,1])
+x_vec3 = 0:0.01:3.0  #3.5 #3.0
+Plots.plot!(x_vec3,robustpade(Polynomial(c_iipEqualTime_mat[j,1]),7,7).(x_vec3), label="x-Padé[7,7]", linestyle=:dashdot, color=color_vec[1])
+#Plots.plot!(x_vec2,robustpade(Polynomial(c_iipEqualTime_mat[j,1]),5,5).(x_vec2), label="x-Padé[5,5]", linestyle=:dash)
+Plots.plot!(x_vec2,robustpade(p_u,7,7).(u_vec), label="u-Padé[7,7], f=$(f)", linestyle=:dash, color=color_vec[1])
+#Plots.plot!(x_vec2,robustpade(p_u,5,5).(u_vec), label="u-Padé[5,5], f=$(f)", linestyle=:dash)
+#display(current())
+
+# Korea
+
+Plots.plot!([-0.2,0.65],[-0.006,-0.006], color=:gray, linestyle=:dash, label=false)
+Plots.plot!([0.65,0.65],[-0.05,-0.006], color=:gray, linestyle=:dash, label=false)
+
+
+if true
+    j = 240
+    Plots.plot!(x_vec,Polynomial(c_iipEqualTime_mat[j,1]).(x_vec),label="bare series " * L"\mathbf{r}=(1,1)",color=color_vec[2])  #L"\langle S^z_i S^z_j \rangle_{NN}"
+    f = 0.75 # 0.5
+    ufromx_mat = get_LinearTrafoToCoeffs_u(n_max,f)
+    x_vec2 = 0:0.01:4.5
+    u_vec = tanh.(f .* x_vec2)
+    p_u = Polynomial(ufromx_mat*c_iipEqualTime_mat[j,1])
+    Plots.plot!(x_vec3,robustpade(Polynomial(c_iipEqualTime_mat[j,1]),7,7).(x_vec3), label="x-Padé[7,7]", linestyle=:dashdot, color=color_vec[2])
+    Plots.plot!(x_vec2,robustpade(p_u,7,7).(u_vec), label="u-Padé[7,7], f=$(f)", linestyle=:dash, color=color_vec[2])
+    #Plots.plot!(x_vec2,robustpade(p_u,5,5).(u_vec), label="u-Padé, f=$(f)", linestyle=:dash, color=color_vec[2])
+    #Plots.hline!([-0.041])
+end
+#Plots.savefig("Images/correlations_ladder_full.svg")
+display(current())
+=#
+
 #result_suscept = sum([get_TGiip_Matsubara_xpoly(c_iipEqualTime_mat, j, 1, 0) for j in 1:hte_lattice.lattice.length])
 #println("uniform susceptebility = $(result_suscept)")
 #expr_sub = substitute(result_suscept, Dict(x2 => 0))
 #println("uniform susceptibility (x2=0) = $(expr_sub)")
 
 if false
-a = 0.5 #J/J_D
-f_num = subvalue(result_suscept,1/a)
-xs1 = range(0.1, 2, length=200)
-xs2 = range(0.1, 10, length=200)
-ys = [f_num(x) for x in xs1]
-y_pade = robustpade(f_num,6,6).(xs2)
+    a = 0.5 #J/J_D
+    f_num = subvalue(result_suscept,1/a)
+    xs1 = range(0.1, 2, length=200)
+    xs2 = range(0.1, 10, length=200)
+    ys = [f_num(x) for x in xs1]
+    y_pade = robustpade(f_num,6,6).(xs2)
 
-Plots.plot(1 ./ xs1, ys, xlabel=L"T/J", ylabel="χ", title=L"J/J_D="*string(a), label="x-Series")
-#Plots.plot!(1 ./ xs2, y_pade, color="orange", linestyle=:dash, alpha=0.7, label="Pade")
-display(current())
+    Plots.plot(1 ./ xs1, ys, xlabel=L"T/J", ylabel="χ", title=L"J/J_D="*string(a), label="x-Series")
+    #Plots.plot!(1 ./ xs2, y_pade, color="orange", linestyle=:dash, alpha=0.7, label="Pade")
+    display(current())
 end
 
 #########################################################################################
@@ -107,9 +164,9 @@ if true
     end
     
     ###### check moments
-    if false
+    if true
         #(we will calculate the first four moments at fixed k)
-        k = pi  #define fixed k 
+        k = 0.001*pi # pi  #define fixed k 
         x_vec = 0:0.01:2.0  #define temperature range of interest
         #Fourier transform the correlation functions at k
         c_kDyn_mat = get_c_k([(k,k)],c_iipDyn_mat_subst,hte_lattice)[1]
@@ -151,6 +208,7 @@ if true
         #SHOW PLOT
         ##############
         display(plt_m)
+        savefig(plt_m,"Images/$(lattice_type)_moments_k_$(round(k/pi, digits=3))pi.svg")
     end
     if true
         w_vec = collect(0.0:0.025:5.5) #3.5
@@ -160,7 +218,7 @@ if true
         ufromx_mat = get_LinearTrafoToCoeffs_u(n_max+1,f)
         poly_x = Polynomial([0,1],:x)
 
-        x = 0.01  # J/T
+        x = 2.0  # J/T
         x0 = x/sc  # J1/T
         u0 = tanh.(f .* x0)
 
@@ -170,6 +228,9 @@ if true
 
         #path = [(pi/4,pi/4),(pi/2,0),(pi/2,pi/2),(pi/4,pi/4),(0.001,0.001),(pi/2,0)]
         #pathticks = ["(π/4,π/4)","(π/2,0)","(π/2,π/2)","(π/4,π/4)","(0,0)","(π/2,0)"]
+
+        #path = [(4*pi/3,0),(0.001,0.001)]
+        #pathticks = ["(4π/3,0)","(0,0)"]
 
         Nk = 75  #75
         k_vec,kticks_positioins = create_brillouin_zone_path(path, Nk)
@@ -199,8 +260,6 @@ end
 
 ###### plot JS(k,ω)
 if true
-    using CairoMakie
-
     fig = Figure(fontsize=8,size=(aps_width,0.6*aps_width));
     ax=Axis(fig[1,1],xlabel=L"\mathbf{k}",ylabel=L"\omega/J=w",xlabelsize=8,ylabelsize=8);
     hm=CairoMakie.heatmap!(ax,collect(0:Nk)/(Nk),w_vec ./ sc, JSkw_mat .* sc,colormap=:viridis,colorrange=(0.001,0.4),highclip=:white);
@@ -213,7 +272,7 @@ if true
     resize_to_layout!(fig);
     display(fig)
 
-    #save("Images/$(lattice_type)_JSkw_a_$(a).png",fig; px_per_unit=6.0)
+    save("Images/$(lattice_type)_JSkw_a_$(a).svg",fig; px_per_unit=6.0)
 end
 
 ###### plot w slice
@@ -230,8 +289,8 @@ if false
 end
 
 ###### plot k slice
-if true
-    slice = 32  #[1, 14, 32, 45, 58, 76]
+if false
+    slice = 1  #[1, 14, 32, 45, 58, 76]
     kslice = k_vec[slice]
     #println(kslice)
     fig = Figure(fontsize=8,size=(aps_width,0.6*aps_width));
@@ -239,6 +298,13 @@ if true
     lines!(ax,w_vec./sc,JSkw_mat[slice,:].*sc)
     display(fig)
     #save("Images/$(lattice_type)_wslice_$(kslice).png",fig; px_per_unit=6.0)
+    #=
+    open("JSkw_triang.txt", "w") do io
+    for x in JSkw_mat[slice,:].*sc
+        println(io, x)
+    end
+    end
+    =#
 end
 
 ###### plot k slice for different a

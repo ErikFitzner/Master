@@ -451,7 +451,7 @@ function getSymmetryGroup(geometry::String)
         - pyrochlore
         - kagome
     """
-    if geometry == "chain" ### chain lattice
+    if geometry == "chain"
         a1 = (1, 0)
         a2 = (0, 1)
 
@@ -469,7 +469,7 @@ function getSymmetryGroup(geometry::String)
         translation_Group = translation_group([a1,a2])
         symmetry_Group = generate_symmetry_group(basis,translation_Group)
 
-    elseif geometry == "square" ### Square lattice
+    elseif geometry == "square"
         a1 = (1, 0)
         a2 = (0, 1)
 
@@ -477,6 +477,17 @@ function getSymmetryGroup(geometry::String)
         Px = sym_element([-1 0; 0 1],[0,0])
 
         basis = sym_group([neutral_elem(C_4),C_4,Px])
+        translation_Group = translation_group([a1,a2])
+        symmetry_Group = generate_symmetry_group(basis,translation_Group)
+
+    elseif geometry == "aniso_square" ### anisotropic square lattice
+        a1 = (1, 0)
+        a2 = (0, 1)
+
+        Px = sym_element([-1 0; 0 1],[0,0])
+        Py = sym_element([1 0; 0 -1],[0,0])
+
+        basis = sym_group([neutral_elem(Px),Px,Py])
         translation_Group = translation_group([a1,a2])
         symmetry_Group = generate_symmetry_group(basis,translation_Group)
 

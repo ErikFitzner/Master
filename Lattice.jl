@@ -54,7 +54,6 @@ function addBasisSite!(unitcell::UnitCell{D}, position::NTuple{D,Float64}) where
 end
 
 
-
 function Lattice(uc::UnitCell{D}, L::NTuple{D,Int}) where D
     #parse interactions
     ##For every basis site b, generate list of sites which b interacts with and store the corresponding interaction sites and matrices. 

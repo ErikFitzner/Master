@@ -37,8 +37,8 @@ if true
     spin_length = 1/2
     n_max = 12
 
-    lattice_type1 = "ladder" #"Shastry-Sutherland"
-    lattice_type2 = "chain"
+    lattice_type1 = "aniso_square" #"Shastry-Sutherland"
+    lattice_type2 = "aniso_square"
 
     j1 = true
     j2 = true
@@ -56,7 +56,7 @@ if true
     #println(hte_lattice2.basis_positions)
     
     #fileName1 = "CaseStudy/$(lattice_type1)_" * create_spin_string(spin_length) * "_c_iipDyn_nmax" * string(n_max) * "_L" * string(L) * "_J1_$(1*j1)_J2_$(1*j2)_J3_$(1*j3)_J4_$(1*j4).jld2"
-    fileName1 = "CaseStudy/$(lattice_type1)_" * create_spin_string(spin_length) * "_c_iipDyn_nmax" * string(n_max) * "_L" * string(L) * "_a_$(1.0)_b_$(0.0)_c_$(0.0).jld2"
+    fileName1 = "CaseStudy/$(lattice_type1)_" * create_spin_string(spin_length) * "_c_iipDyn_nmax" * string(n_max) * "_L" * string(L) * "_a_$(0.0)_b_$(0.0)_c_$(0.0).jld2"
     #fileName2 = "CaseStudy/$(lattice_type2)_" * create_spin_string(spin_length) * "_c_iipDyn_nmax" * string(n_max) * "_L" * string(L) * "_J1_$(1*j1)_J2_$(1*j2)_J3_$(1*j3)_J4_$(1*j4).jld2"
     fileName2 = "CaseStudy/$(lattice_type2)_" * create_spin_string(spin_length) * "_c_iipDyn_nmax" * string(n_max) * "_L" * string(L) * "_a_$(1.0)_b_$(0.0)_c_$(0.0).jld2"
     
@@ -79,8 +79,8 @@ if true
     #println(isequal(c_iipDyn_mat1,c_iipDyn_mat2))
     #println(isapprox(c_iipDyn_mat1, c_iipDyn_mat2; atol=1e-6))
     
-    println(size(c_iipDyn_mat1))
-    println(size(c_iipDyn_mat2))
+    #println(size(c_iipDyn_mat1))
+    #println(size(c_iipDyn_mat2))
 
     #println(c_iipDyn_mat1[12,1])
     #println(c_iipDyn_mat2[22,1])
