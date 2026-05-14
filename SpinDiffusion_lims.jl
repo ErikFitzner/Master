@@ -115,7 +115,7 @@ function get_delta_vec_ext(x0::Float64,moments;f::Float64=0.7,r_max::Int64=3)
     if x0 == 0
         m0 = []
         for m_idx=1:r_max+1
-            push!(m0, get_pade(moments[m_idx],7-m_idx,6-m_idx))
+            push!(m0, get_pade(moments[m_idx],7-m_idx,7-m_idx))
         end
         δ_vec,r_vec = fromMomentsToδ([m(x0) for m in m0])
     else
@@ -128,9 +128,9 @@ function get_delta_vec_ext(x0::Float64,moments;f::Float64=0.7,r_max::Int64=3)
         δ_vec,r_vec = fromMomentsToδ(m0)
     end
 
-    δ_vec_ext = extrapolate_δvec(δ_vec,length(δ_vec)-2,length(δ_vec)-1,2000,false)
+    δ_vec_ext = extrapolate_δvec(δ_vec,length(δ_vec)-2,length(δ_vec)-1,2000,false)  # extrapolate_δvec(δ_vec,length(δ_vec)-2,length(δ_vec)-1,2000,false)
     b_vec = [sqrt(d) for d in δ_vec]
-    b_vec_ext = extrapolate_δvec(b_vec,length(b_vec)-2,length(b_vec)-1,2000,false)
+    b_vec_ext = extrapolate_δvec(b_vec,length(δ_vec)-2,length(b_vec)-1,2000,false)
 
     #println(b_vec)
 
@@ -270,22 +270,37 @@ end
 function sigma_w_x(x_vec::Vector{Float64},w_vec::Vector{Float64},a::Float64;r_max::Int64=3,f::Float64=0.7,b::Float64=0.0,c::Float64=0.0)
     c_iipDyn_mat_subst = load_ciipDyn_mat_subst(a,b=b,c=c)
     moments = get_moments_Gklim(c_iipDyn_mat_subst, hte_lattice, ex)
-    sc = sqrt(1+a^2+b^2+c^2) # scale to w/J and JS
+    sc = 1 # sqrt(1+a^2+b^2+c^2) # scale to w/J and JS
     
-    plt = Plots.plot([0],[0],label="",xlabel=L"w",ylabel=L"\sigma(w)",title="Spin conductivity, $(lattice_type), J2/J1=$(a)",size=(1.5*aps_width,aps_width), legend=:topright)
+    plt = Plots.plot([0],[0],label="",xlabel=L"w",ylabel=L"\sigma(w)",size=(aps_width,0.67*aps_width), legend=:topright)
 
-    for x in x_vec # J/T
+    for (i,x) in enumerate(x_vec) # J/T
         x0 = x/sc  # J1/T
+        
+        #=
+        for r in 1:r_max # 2_r_max
+            δ_vec_ext = get_delta_vec_ext(x0,moments,r_max=r,f=f)[2]
+            
+            if x0 == 0.0
+                DS_w = [1/Tχ_upade(tanh(f*x0)) * sigma(δ_vec_ext,x0,w*sc,0.001) for w in w_vec]
+            else
+                DS_w = [1/x0 * 1/Tχ_upade(tanh(f*x0)) * sigma(δ_vec_ext,x0,w*sc,0.001) for w in w_vec]
+            end
+
+            Plots.plot!(plt, w_vec, DS_w, label=L"r_{\text{max}}=" * "$(r+1)", color=color_vec[r]) # , label="x=$(x)"
+        end
+        =#
 
         δ_vec_ext = get_delta_vec_ext(x0,moments,r_max=r_max,f=f)[2]
-        sigma_ω = [sigma(δ_vec_ext,x0,w*sc,0.001) for w in w_vec]
-
-        #δ_vec,extrap_params = get_delta_vec_ext_neu(x0,moments,r_max=r_max,f=f)
-        #sigma_ω = [sigma_neu(δ_vec,x0,w*sc,extrap_params) for w in w_vec]
-
-        Plots.plot!(plt, w_vec, sigma_ω, label="x=$(x)")
+        if x0 == 0.0
+            sigma_w = [sigma(δ_vec_ext,x0,w*sc,0.001) for w in w_vec]
+        else
+            sigma_w = [sigma(δ_vec_ext,x0,w*sc,0.001) for w in w_vec]
+        end
+        Plots.plot!(plt, w_vec, sigma_w, label=L"x=" * "$(x)", color=color_vec[i])
     end
-    #display(plt)
+    
+    display(plt)
     #savefig(plt,"Images/SpinConductivity_$(lattice_type)_a_$(a).png")
 end
 
@@ -297,12 +312,13 @@ function DS_w_x(x_vec::Vector{Float64},w_vec::Vector{Float64},a::Float64;r_max::
     Tχ = Polynomial([(-1)^n*sum(c_iipEqualTime_mat[i,1][n+1] for i in 1:hte_lattice.lattice.length) for n in 0:n_max])
     Tχ_upade = get_upade(Tχ,f=f)
 
-    sc = sqrt(1+a^2+b^2+c^2) # scale to w/J and JS
+    sc = 1 # sqrt(1+a^2+b^2+c^2) # scale to w/J and JS
     
-    plt = Plots.plot([0],[0],label="",xlabel=L"w",ylabel=L"D_S/J(w)",size=(0.8*1.5*aps_width,0.8*aps_width), legend=:topright) # title="$(lattice_type) lattice, J2/J1=$(a)",
-
-    for x in x_vec # J/T
+    plt = Plots.plot([0],[0],label="",xlabel=L"w=\omega/J",ylabel=L"\sigma(w)/(J\chi)",size=(1.2*aps_width,0.6*aps_width), legend=:topright, xlims=(0.0,2.6)) # title="$(lattice_type) lattice, J2/J1=$(a)",
+    colors = red_to_blue_palette(length(x_vec);gamma=3.0,L_min=50,L_max=80,C0=70)
+    for (i,x) in enumerate(x_vec) # J/T
         x0 = x/sc  # J1/T
+        
         
         for r in 1:r_max # 2_r_max
             δ_vec_ext = get_delta_vec_ext(x0,moments,r_max=r,f=f)[2]
@@ -316,15 +332,65 @@ function DS_w_x(x_vec::Vector{Float64},w_vec::Vector{Float64},a::Float64;r_max::
             Plots.plot!(plt, w_vec, DS_w, label=L"r_{\text{max}}=" * "$(r+1)", color=color_vec[r]) # , label="x=$(x)"
         end
         
+
+        #=
+        δ_vec_ext = get_delta_vec_ext(x0,moments,r_max=r_max,f=f)[2]
+        if x0 == 0.0
+            DS_w = [1/Tχ_upade(tanh(f*x0)) * sigma(δ_vec_ext,x0,w*sc,0.001) for w in w_vec]
+        else
+            DS_w = [1/x0 * 1/Tχ_upade(tanh(f*x0)) * sigma(δ_vec_ext,x0,w*sc,0.001) for w in w_vec]
+        end
+        Plots.plot!(plt, w_vec, DS_w, label=L"J/T=" * "$(x)", color=colors[i])
+        =#
     end
     display(plt)
-    #savefig(plt,"Images/DS_$(lattice_type)_x_$(x_vec[1]).svg")  # _a_$(a)
+    savefig(plt,"Images/DS_$(lattice_type)_x.svg")
+end
+
+function DS_w_x_log(x_vec::Vector{Float64},w_vec::Vector{Float64},a::Float64;r_max::Int64=3,f::Float64=0.7,b::Float64=0.0,c::Float64=0.0)
+    c_iipDyn_mat_subst = load_ciipDyn_mat_subst(a,b=b,c=c)
+    moments = get_moments_Gklim(c_iipDyn_mat_subst, hte_lattice, ex)
+    c_iipEqualTime_mat = get_c_iipEqualTime_mat(c_iipDyn_mat_subst)
+    Tχ = Polynomial([(-1)^n*sum(c_iipEqualTime_mat[i,1][n+1] for i in 1:hte_lattice.lattice.length) for n in 0:n_max])
+    Tχ_upade = get_upade(Tχ,f=f)
+
+    sc = 1 # sqrt(1+a^2+b^2+c^2) # scale to w/J and JS
+    
+    plt = Plots.plot([1],[1],label="",xlabel=L"w^2",ylabel=L"D_s(w)/J",size=(0.67*aps_width,0.67*0.67*aps_width), legend=:topright, yscale=:log10)
+    colors = red_to_blue_palette(length(x_vec);gamma=3.0,L_min=50,L_max=80,C0=70)
+    for (i,x) in enumerate(x_vec) # J/T
+        x0 = x/sc  # J1/T
+        
+        #=
+        for r in 1:r_max # 2_r_max
+            δ_vec_ext = get_delta_vec_ext(x0,moments,r_max=r,f=f)[2]
+            
+            if x0 == 0.0
+                DS_w = [1/Tχ_upade(tanh(f*x0)) * sigma(δ_vec_ext,x0,w*sc,0.001) for w in w_vec]
+            else
+                DS_w = [1/x0 * 1/Tχ_upade(tanh(f*x0)) * sigma(δ_vec_ext,x0,w*sc,0.001) for w in w_vec]
+            end
+
+            Plots.plot!(plt, w_vec, DS_w, label=L"r_{\text{max}}=" * "$(r+1)", color=color_vec[r]) # , label="x=$(x)"
+        end
+        =#
+
+        δ_vec_ext = get_delta_vec_ext(x0,moments,r_max=r_max,f=f)[2]
+        if x0 == 0.0
+            DS_w = [1/Tχ_upade(tanh(f*x0)) * sigma(δ_vec_ext,x0,w*sc,0.001) for w in w_vec]
+        else
+            DS_w = [1/x0 * 1/Tχ_upade(tanh(f*x0)) * sigma(δ_vec_ext,x0,w*sc,0.001) for w in w_vec]
+        end
+        Plots.plot!(plt, w_vec.^2, DS_w, label=L"x=" * "$(x)", color=colors[i])
+    end
+    display(plt)
+    #savefig(plt,"Images/DS_$(lattice_type)_x_log.svg")
 end
 
 # comparison comparison σ(w) for different values of a at fixed x
 function sigma_w_a(x::Float64, w_vec::Vector{Float64}, a_vec::Vector{Float64};b::Float64=0.0,c::Float64=0.0,r_max::Int64=3,f::Float64=0.7)
-    plt2 = Plots.plot([1],[1],label="",xlabel=L"w=\omega/J_x",ylabel=L"D_{s,x}(w)/J_x",size=(1.2*aps_width,0.8*aps_width), legend=:bottomleft, xscale=:log10, yscale=:log10) # ,title="Spin conductivity, $(lattice_type), x=$(x)"
-    ϵ = 1e-8
+    plt2 = Plots.plot([1],[1],label="",xlabel=L"w=\omega/J_x",ylabel=L"D_{s,x}(w)/J_x",size=(1.2*aps_width,0.8*aps_width), legend=:bottomleft) #, xscale=:log10, yscale=:log10) # ,title="Spin conductivity, $(lattice_type), x=$(x)"
+    ϵ = 1e-3 #1e-8
     sigma_w_0 = []
     for a in a_vec
         c_iipDyn_mat_subst = load_ciipDyn_mat_subst(a,b=b,c=c)
@@ -348,11 +414,14 @@ function sigma_w_a(x::Float64, w_vec::Vector{Float64}, a_vec::Vector{Float64};b:
         push!(sigma_w_0, DS_w[1])
     end
 
+    #=
     if lattice_type == "aniso_square"
         sigma_exact = [x/2 * fermionic_integral(x) * (1/pi * ϵ/(w^2+ϵ^2)) for w in w_vec]
         DS_exact = [1/2 * fermionic_integral(x) * 1/Tχ_exact(x) * (1/pi * ϵ/(w^2+ϵ^2)) for w in w_vec]
         Plots.plot!(plt2, w_vec, DS_exact, linestyle=:dash, color=:black, label="XX chain exact")
     end
+    =#
+
     display(plt2)
     #savefig(plt2,"Images/SpinConductivity_$(lattice_type)_x_$(x).svg")
 
@@ -471,7 +540,7 @@ end
 
 # comparison D_S(x) for different a
 function DS_x_a(x_vec::Vector{Float64},w::Float64,a_vec::Vector{Float64};b::Float64=0.0,c::Float64=0.0,r_max=Int64=3,f::Float64=0.7)
-    plt4 = Plots.plot([0],[0],label="",xlabel=L"J_x/T",ylabel=L"D_{s,x}/J_x",size=(0.8*1.5*aps_width,0.8*aps_width), legend=:topleft, xlims=(-0.05,2.05), ylims=(0.65,3.05))  # title="Spin Diffusion, $(lattice_type)",
+    plt4 = Plots.plot([0],[0],label="",xlabel=L"J/T",ylabel=L"D_s/J",size=(aps_width,0.67*aps_width), legend=:topleft, xlims=(0.0,1.55), ylims=(0.45,2.55))  # title="Spin Diffusion, $(lattice_type)",
     for a in a_vec
         c_iipDyn_mat_subst = load_ciipDyn_mat_subst(a,b=b,c=c)
         moments = get_moments_Gklim(c_iipDyn_mat_subst, hte_lattice, ex)
@@ -497,25 +566,46 @@ function DS_x_a(x_vec::Vector{Float64},w::Float64,a_vec::Vector{Float64};b::Floa
                 push!(sig_x, 1/x0 * 1/Tχ_upade(tanh(f*x0)) * sigma(δ_vec_ext,x0,w*sc,0.001))
             end
         end
-        Plots.plot!(plt4, x_vec, sig_x./sc, label=L"J_2/J_1=" * "$(a)")  # label="J2/J1=$(a)"
+        Plots.plot!(plt4, x_vec, sig_x./sc, label="Dyn-HTE", color = color_vec[1]) #, label=L"J_2/J_1=" * "$(a)")
+        
+        # save data
+        #=
+        open("output.txt", "w") do io
+            println(io, "J/T\tJχ\tD_s/J")
+            for (x,y,z) in zip(x_vec, sus(a,x_vec), sig_x ./ sc)
+                println(io, "$x\t$y\t$z")
+            end
+        end
+        =#
+        #=
+        open("SpinDiffusion.txt", "w") do io
+            println(io, "J/T\tD_s/J")
+            for (x,y) in zip(x_vec, sig_x ./ sc)
+                println(io, "$x\t$y")
+            end
+        end
+        =#
     end
     
     # Korea
-    #=
+    
     #Plots.hline!(plt4, [0.93], linestyle=:dash, color=:gray, label=false)
-    Plots.plot!(plt4, [0.65,0.65],[0.5,0.9], linestyle=:dash, color=:gray, label=false)
-    Plots.plot!(plt4, [-0.05,0.65],[0.9,0.9], linestyle=:dash, color=:gray, label=false)
-    xs, labels = xticks(plt4)[1]
-    new_ticks = vcat(xs, 0.65)
-    Plots.xticks!(plt4, sort(new_ticks))
-    =#
+    #Plots.plot!(plt4, [0.41,0.41],[0.5,3.05], linestyle=:dot, color=:gray, label=false)
+    #Plots.plot!(plt4, [-0.05,4.0],[0.837,0.837], linestyle=:dash, color=:black, label="Experiment")
+    #Plots.plot!([-0.2,4.1], fill(0.8366, 2), ribbon=fill(0.0310, 2), fillalpha=0.1, color=:black, linestyle=:dash, label="Experiment")
+    #xs, labels = xticks(plt4)[1]
+    #new_ticks = vcat(xs, 0.41)
+    #Plots.xticks!(plt4, sort(new_ticks))
+    
+
     display(plt4)
-    # savefig(plt4,"Images/SpinDiffusion_$(lattice_type).svg")
+    #savefig(plt4,"Images/SpinDiffusion_$(lattice_type).svg")
 end
 
 function DS_a_x(x_vec::Vector{Float64},w::Float64,a_vec::Vector{Float64};b::Float64=0.0,c::Float64=0.0,r_max=Int64=3,f::Float64=0.7)
-    colors = cgrad(:thermal, length(x_vec), categorical=true)
-    plt4 = Plots.plot([1],[1],label="",xlabel=L"J_y/J_x",ylabel=L"D_{s,x}/J_x",size=(aps_width,0.67*aps_width), legend=:topright, xscale=:log10, yscale=:log10) #, ylims=(0.65,1.25))  # title="Spin Diffusion, $(lattice_type)",
+    #colors = cgrad(:thermal, length(x_vec), categorical=true)
+    colors = red_to_blue_palette(length(x_vec);gamma=3.0,L_min=50,L_max=80,C0=70)
+    plt4 = Plots.plot([1],[1],label="",xlabel=L"J_y/J_x",ylabel=L"D_{s,x}/J_x",size=(1.2*aps_width,0.6*aps_width), legend=:topright, xscale=:log10, yscale=:log10) #, ylims=(0.65,1.25))  # title="Spin Diffusion, $(lattice_type)",
     for (i,x) in enumerate(x_vec)
         Ds_list = []
         if x > 0.1
@@ -537,14 +627,14 @@ function DS_a_x(x_vec::Vector{Float64},w::Float64,a_vec::Vector{Float64};b::Floa
                 push!(Ds_list, 1/x * 1/Tχ_upade(tanh(f*x)) * sigma(δ_vec_ext,x,w,1e-8))
             end
         end
-        Plots.scatter!(plt4, a_vec[mask], Ds_list, color=colors[i], label="J/T=$(round(x,digits=1))")
+        Plots.scatter!(plt4, a_vec[mask], Ds_list, color=colors[length(x_vec)-i+1], label=L"J_x/T="*"$(round(x,digits=1))", markeralphe=0.8)
     end
     fit = 0.5*(3/(2*pi))^0.5 ./ (a_vec .^ 2)  # 0.41
     fit2 = pi^0.5/(2*2^0.5) ./ a_vec  # 0.64
-    Plots.plot!(plt4, a_vec, fit, linestyle=:dash, label=L"\frac{1}{2}\sqrt{\frac{3}{2\pi}}\frac{J_x^2}{J_y^2}", color=:black)
-    Plots.plot!(plt4, a_vec, fit2, linestyle=:dashdot, label=L"\frac{\sqrt{\pi}}{2\sqrt{2}}\frac{J_x}{J_y}", color=:gray)
+    Plots.plot!(plt4, a_vec, fit, linestyle=:dash, label=L"\frac{1}{2}\sqrt{\frac{3}{2\pi}}\;\frac{J_x^2}{J_y^2}", color=:black)
+    Plots.plot!(plt4, a_vec, fit2, linestyle=:dashdot, label=L"\frac{\sqrt{\pi}}{2\sqrt{2}}\;\frac{J_x}{J_y}", color=:gray)
     display(plt4)
-    savefig(plt4,"Images/SpinDiffusion_$(lattice_type)_r.svg")
+    #savefig(plt4,"Images/SpinDiffusion_$(lattice_type)_r.svg")
 end
 
 function DS_x_a_heatmap(x_vec::Vector{Float64},w::Float64,a_vec::Vector{Float64};b::Float64=0.0,c::Float64=0.0,r_max=Int64=3,f::Float64=0.7)
@@ -693,7 +783,7 @@ function DS_Bonca(x_vec::Vector{Float64};a::Float64=0.0,b::Float64=0.0,c::Float6
 end
 
 function DS_comp_FTLM(x_vec::Vector{Float64};a::Float64=0.0,b::Float64=0.0,c::Float64=0.0,r_max=Int64=3,f::Float64=0.7)
-    plt6 = Plots.plot([0],[0],label="",xlabel=L"J/T",ylabel=L"D_S/J",size=(1.2*aps_width,0.8*aps_width), legend=:topleft, ylims=(0.55,1.85)) # ylims=(0.4,0.7), title="Spin Diffusion, $(lattice_type)_lattice",
+    plt6 = Plots.plot([0],[0],label="",xlabel=L"J/T",ylabel=L"D/J",size=(1.2*aps_width,0.6*aps_width), legend=:topleft, ylims=(0.62,1.62)) # ylims=(0.4,0.7), title="Spin Diffusion, $(lattice_type)_lattice",
     c_iipDyn_mat_subst = load_ciipDyn_mat_subst(a,b=b,c=c)
     moments = get_moments_Gklim(c_iipDyn_mat_subst, hte_lattice, ex)
     c_iipEqualTime_mat = get_c_iipEqualTime_mat(c_iipDyn_mat_subst)
@@ -701,7 +791,7 @@ function DS_comp_FTLM(x_vec::Vector{Float64};a::Float64=0.0,b::Float64=0.0,c::Fl
     Tχ_upade = get_upade(Tχ,f=f)
     sc = 1 # sqrt(1+a^2+b^2+c^2) # scale to w/J and JS
 
-    for r in range(2,4)
+    for r in [2,3,4]
         sig_x = []
         for x in x_vec
             x0 = x/sc
@@ -714,7 +804,11 @@ function DS_comp_FTLM(x_vec::Vector{Float64};a::Float64=0.0,b::Float64=0.0,c::Fl
                 push!(sig_x, 1/x0 * 1/Tχ_upade(tanh(f*x0)) * sigma(δ_vec_ext,x0,0.0,0.001))
             end
         end
-        #Plots.plot!(plt6, x_vec, sig_x./sc, label=L"r_\text{max}="*"$r", color=:black, linestyle=linestyle_vec[5-r])
+        if r ==4
+            Plots.plot!(plt6, x_vec, sig_x./sc, label=L"r_\text{max}="*"$r", color=:black, linestyle=linestyle_vec[5-r],linewidth=1.9)
+        else
+            Plots.plot!(plt6, x_vec, sig_x./sc, label=L"r_\text{max}="*"$r", color=:black, linestyle=linestyle_vec[5-r])
+        end
     end
 
     # FTLM
@@ -747,18 +841,21 @@ function DS_comp_FTLM(x_vec::Vector{Float64};a::Float64=0.0,b::Float64=0.0,c::Fl
     Plots.scatter!(plt6, T_vec, Ds_5x4_T, label="5x4", color=sat_vec[6], markershape=:diamond, markersize=5)
     =#
     #
-    sat_vec = saturation_palette(6, h=240)
+    #sat_vec = saturation_palette(6, h=0, v=0.5)
     #Plots.plot!(plt6, x_vec, sig_x./sc, label="Dyn-HTE", color=:black)
     # Plots.plot!(plt6,[NaN],[NaN],color=:white,label=" ",linealpha=0,marker=:none)
     # Plots.plot!(plt6,[NaN],[NaN],color=:white,label="[FTLM_data]",linealpha=0,marker=:none)
-    Plots.scatter!(plt6, b_vec, Ds_4x3_b, label="4x3", color=sat_vec[1], markershape=:diamond, markersize=5)
-    # Plots.scatter!(plt6, b_vec, Ds_3x4_b, label="3x4", color=sat_vec[2], markershape=:diamond, markersize=5)
-    Plots.scatter!(plt6, b_vec, Ds_4x4_b, label="4x4", color=sat_vec[2], markershape=:diamond, markersize=5)
-    Plots.scatter!(plt6, b_vec, Ds_5x4_b, label="5x4", color=sat_vec[3], markershape=:diamond, markersize=5)
-    # Plots.scatter!(plt6, b_vec, Ds_4x5_b, label="4x5", color=sat_vec[5], markershape=:diamond, markersize=5)
-    Plots.scatter!(plt6, b_vec, Ds_5x5_b, label="5x5", color=sat_vec[6], markershape=:diamond, markersize=5)
-    # Plots.hline!([0.9])
-    #
+    Plots.scatter!(plt6, b_vec, Ds_4x3_b, label="4x3", color=gray_palette[4], markershape=:diamond, markersize=4)
+    # Plots.scatter!(plt6, b_vec, Ds_3x4_b, label="3x4", color=sat_vec[2], markershape=:diamond, markersize=4)
+    Plots.scatter!(plt6, b_vec, Ds_4x4_b, label="4x4", color=gray_palette[3], alpha=0.3, markershape=:diamond, markersize=4)
+    Plots.scatter!(plt6, b_vec, Ds_5x4_b, label="5x4", color=gray_palette[2], markershape=:diamond, markersize=4, alpha=0.1)
+    # Plots.scatter!(plt6, b_vec, Ds_4x5_b, label="4x5", color=sat_vec[5], markershape=:diamond, markersize=4)
+    Plots.scatter!(plt6, b_vec, Ds_5x5_b, label="5x5", color=gray_palette[1], alpha=1.0, markershape=:diamond, markersize=4)
+    
+    #### Experimental data
+    Plots.plot!(plt6, [0.38, 0.54], [0.82, 0.82], label="", color=color_vec[4], linewidth=0.8)
+    Plots.plot!(plt6, [0.47, 0.47], [0.82-0.03, 0.82+0.03], label="", color=color_vec[4], linewidth=0.8)
+    Plots.scatter!(plt6, [0.47], [0.82], label="Experiment", color=color_vec[4], markersize=6.5)
 
     display(plt6)
     #savefig(plt6,"Images/SpinDiffusion_$(lattice_type)_FTLM.svg")
@@ -871,20 +968,25 @@ function D_nmax(str::String;x::Float64=0.0,f::Float64=0.7,a::Float64=0.0,b::Floa
     #println(data_morita./2)
 end
 
-function sus(a::Float64, x_vec::Vector{Float64};f::Float64=0.3,b::Float64=0.0,c::Float64=0.0,m::Int64=6,n::Int64=5)
+function sus(a::Float64, x_vec::Vector{Float64};f::Float64=0.7,b::Float64=0.0,c::Float64=0.0,m::Int64=7,n::Int64=6)
     c_iipDyn_mat_subst = load_ciipDyn_mat_subst(a,b=b,c=c)
-    moments = get_moments_Gklim(c_iipDyn_mat_subst, hte_lattice, ex)
     c_iipEqualTime_mat = get_c_iipEqualTime_mat(c_iipDyn_mat_subst)
     Tχ = Polynomial([(-1)^n*sum(c_iipEqualTime_mat[i,1][n+1] for i in 1:size(c_iipEqualTime_mat)[1]) for n in 0:n_max])  #hte_lattice.lattice.length
     sc = 1 # sqrt(1+a^2+b^2+c^2) # scale to T/J and Jχ
 
     x_vec_plot = x_vec ./ sc
-    ufromx_mat = get_LinearTrafoToCoeffs_u(n_max,f)
     u_vec = tanh.(f .* x_vec_plot)
+    Jχ_bare = x_vec_plot .* Tχ.(x_vec_plot)
+    Jχ = x_vec_plot .* get_upade(Tχ,f=f,m=m,n=n).(u_vec)
+    Jχ_2 = x_vec_plot .* get_upade(Tχ,f=f,m=6,n=6).(u_vec)
+    Jχ_3 = x_vec_plot .* get_upade(Tχ,f=f,m=6,n=5).(u_vec)
+    
 
-    plt = Plots.plot([0],[0],label="",xlabel=L"J/T",ylabel=L"Jχ",size=(0.8*1.5*aps_width,0.8*aps_width), legend=:topleft) 
-    #plot!(plt, 1 ./ x_vec_plot, x_vec_plot .* Tχ.(x_vec_plot), label="bare series")
-    Plots.plot!(plt, x_vec_plot, x_vec_plot .* get_upade(Tχ,f=f,m=7,n=6).(u_vec), color=color_vec[1], label="Dyn-HTE")
+    plt = Plots.plot([0],[0],label="",xlabel=L"J/T",ylabel=L"Jχ",size=(aps_width,0.67*aps_width), legend=:topleft) 
+    Plots.plot!(plt, x_vec_plot[1:230], Jχ_bare[1:230], label="bare series", color=:grey, linestyle=:dash)
+    Plots.plot!(plt, x_vec_plot, Jχ, color=color_vec[1], label="u-Padé [$m,$n]")
+    #Plots.plot!(plt, x_vec_plot, Jχ_2, color=color_vec[1], label="u-Padé [6,6]",linestyle=linestyle_vec[2])
+    #Plots.plot!(plt, x_vec_plot, Jχ_3, color=color_vec[1], label="u-Padé [6,5]",linestyle=linestyle_vec[3])
     Plots.plot!(plt, x_vec_plot, x_vec_plot ./ 4, label="J/(4T)", linestyle=:dash, color=color_vec[2])
 
     ####################
@@ -901,10 +1003,21 @@ function sus(a::Float64, x_vec::Vector{Float64};f::Float64=0.3,b::Float64=0.0,c:
     end
     =#
 
-    #display(plt)
+    # save data
+    #=
+        open("sus.txt", "w") do io
+            println(io, "J/T\tJχ")
+            for (x, y) in zip(x_vec, Jχ)
+                println(io, "$x\t$y")
+            end
+        end
+    =#
+
+    display(plt)
     #savefig(plt,"Images/Static_susceptibility.svg")
 
     # slope
+    #=
     sites = collect(-10:1:10)
     dV_dx_J = 0.05
     x_vec = [0.0, 0.5, 1.0, 2.0]
@@ -918,35 +1031,39 @@ function sus(a::Float64, x_vec::Vector{Float64};f::Float64=0.3,b::Float64=0.0,c:
     end
     display(plt2)
     #savefig(plt2,"Images/dn_dx.svg")
+    =#
+    return Jχ
 end
 
 ####### main ######
 x_vec = collect(0.0:0.5:2.0) #J/T
-w_vec = collect(0.0:0.025:3.0) #ω/J
+w_vec = collect(0.0:0.01:2.6) #ω/J
 a = 1.0
 a_vec = [0.0,0.5,1.0,1.5,2.0,2.5,3.0,3.5,4.0] #[0.0,0.5,1.1,1.25,1.3,1.4,1.6,2.0,4.0]
 
 
 ##### moments of σ(w) and R(w) are connected but shifted by one -> r_max=3 means we use 0th moment:m_{d,2}, 1st moment:m_{d,4}, 2nd moment m_{d,6}, 3rd moment m_{d,8}
 
-#sigma_w_x([1.2],w_vec,a,r_max=4)
-#DS_w_x([0.0],w_vec,a,r_max=6)
+#sigma_w_x([0.0,0.5,1.0,1.5],w_vec,1.0,r_max=4)
+DS_w_x([0.0],w_vec,1.0,r_max=6) # DS_w_x([0.0,0.5,1.0,1.5],w_vec,1.0,r_max=4)
+#DS_w_x_log([0.0,0.5,1.0,1.5],w_vec,1.0,r_max=4)
 
 #comp_DS_Dyn_Gauß(collect(0.0:0.01:1.0),a,"square",r_max=3)
 
 #sigma_w_a(0.0,exp10.(range(-9, 1.5, length=100)),[0.001,0.005,0.01,0.025,0.05,0.1,0.2],r_max=3)  # [0.001,0.005,0.01,0.025,0.05,0.1,0.2]
-#DS_w_a(0.0,w_vec,[0.01,0.1,0.5],r_max=3)
+#sigma_w_a(1.5,w_vec,[0.5,1.0,2.0],r_max=4)
+#DS_w_a(1.0,w_vec,[0.01,0.1,0.5],r_max=4)
 #DS_w_a_moments(0.0,[0.01,0.001,1.0e-6])
 #DS_w_a_int(0.0,collect(0.0:1e-3:3.0),[0.1,0.25,0.5],r_max=3)
 
 #DS_x_0([0.0,0.2,0.4,0.5,0.6,0.7,0.8,0.9,1.0,1.5,2.0,2.5,3.0,3.5,4.0],"hypercubic",r_max=3) #[0.0,0.2,0.4,0.5,0.7,0.8,0.9,1.0,1.5,2.0,2.5,3.0,3.5,4.0]
 #D_nmax("square_XX",x=1.5,a=1.0)
-#sus(1.0, collect(0.0:0.01:1.5))
+#sus(1.0, collect(0.0:0.01:4.0))
 
 #DS_Bonca(collect(0.1:0.01:1.0),r_max=3) #only for Heisenberg square lattice
-DS_comp_FTLM(collect(0.0:0.01:1.5),r_max=3,a=1.0)
+#DS_comp_FTLM(collect(0.0:0.01:1.5),r_max=3,a=1.0)
 
-#DS_x_a(collect(0.0:0.01:1.5),0.0,[1.0],r_max=3,f=0.7)
+#DS_x_a(collect(0.0:0.01:1.6),0.0,[1.0],r_max=4,f=0.7) # collect(0.0:0.01:2.0)
 #DS_a_x([1.0,0.5,0.0],0.0,[0.01,0.025,0.05,0.1,0.2,0.3,0.4,0.5,0.6,0.7,0.8,0.9,1.0,1.1,1.2,1.3,1.4,1.5,1.6,1.7,1.8,1.9,2.0,2.5,3.0,3.5,4.0,7.0,10.0],r_max=3)
 #DS_x_a_heatmap(collect(0.0:0.01:1.0),0.0,[0.1,0.2,0.3,0.4,0.5,0.6,0.7,0.8,0.9,1.0],r_max=3) # [0.1,0.2,0.3,0.4,0.5,0.6,0.7,0.8,0.9,1.0]
 
@@ -1053,14 +1170,19 @@ display(plt5)
 
 
 #=
-c_iipDyn_mat_subst = load_ciipDyn_mat_subst(0.0)
+c_iipDyn_mat_subst = load_ciipDyn_mat_subst(1.0)
 moments = get_moments_Gklim(c_iipDyn_mat_subst, hte_lattice, ex)
 moments_morita = [moments[i] * 2^(2*i) for i in eachindex(moments)]
 #println([moments[i](0.0) for i in eachindex(moments)])
-println(gauss_moments_ratio(moments,0.0))
-Plots.scatter([2,3,4,5,6],gauss_moments_ratio(moments,0.0),xlabel="r",ylabel=L"m_{d,2r}/m_{d,2r}^{\text{Gauss}}", markersize=6,label="",size=(1.5*aps_width*0.5,aps_width*0.5)) # title="moments ratio, $(lattice_type) lattice",
-display(current())
-Plots.savefig("Images/Moments_Ratio_$(lattice_type).png")
+x_vec = [0.0,0.5,1.0,1.5]
+plt = Plots.plot([1],[1],xlabel=L"r",ylabel=L"m_{d,2r}/m_{d,2r}^{\text{Gauss}}",size=(0.67*aps_width,0.67*0.67*aps_width),legend=:topleft,label="",yscale=:log10,xticks=[2,3,4],yticks=([1,2,4,6,10],["1","2","4","6","10"]), xlims=(1.8,4.2), ylims=(0.8,12))
+colors = red_to_blue_palette(length(x_vec);gamma=3.0,L_min=50,L_max=80,C0=70)
+for (i,x0) in enumerate(x_vec)
+    println(gauss_moments_ratio(moments,x0))
+    Plots.scatter!(plt,[2,3,4],gauss_moments_ratio(moments,x0)[1:3],markersize=6,label="x=$x0",color=colors[i], markeralpha=0.8)
+end
+display(plt)
+#savefig(plt,"Images/Moments_Ratio_$(lattice_type)_XX.svg")
 =#
 
 

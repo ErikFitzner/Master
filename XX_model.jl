@@ -7,10 +7,10 @@ include("ConvenienceFunctions.jl")
 
 ### load graph evaluations
 spin_length = 1/2
-n_max = 3
+n_max = 14
 
 ### prepare lattice
-lattice_type = "kagome"
+lattice_type = "aniso_square"
 
 # Are there J1, J2, J3, J4 interactions?
 j1 = true
@@ -18,14 +18,14 @@ j2 = true
 j3 = true
 j4 = false
 
-L = 3
+L = 14
 
 hte_lattice = getLattice(L,lattice_type,j1,j2,j3,j4);
-println(nv(hte_lattice.graph))
-#println(hte_lattice.basis_positions)
+#println(nv(hte_lattice.graph))
+println(hte_lattice.basis_positions)
 
 ### plot lattice
-if true
+if false
     weights = hte_lattice.graph.weights
     # Assign a color for each bond weight: 1=blue, 2=red, 3=green, 4=orange, else=gray
     color_map = Dict(1.0 => :blue, 2.0 => :red, 3.0 => :green, 4.0 => :orange)

@@ -1,4 +1,4 @@
-using JLD2, DelimitedFiles, SimpleWeightedGraphs, Plots, Symbolics
+using JLD2, DelimitedFiles, SimpleWeightedGraphs, Plots, Symbolics,Statistics
 using CairoMakie
 
 include("plotConventions.jl")
@@ -6,15 +6,13 @@ include("LatticeGraphs.jl")
 include("Embedding.jl")
 include("ConvenienceFunctions.jl") 
 
-# TODO add an if statement to distinguish case using one bond type from case with different types --> unique_gG_vec vs GraphG
-
 @variables x1 x2
 
 ### load graph evaluations
 spin_length = 1/2
-n_max = 12
+n_max = 14
 ### prepare lattice
-lattice_type = "square"
+lattice_type = "aniso_square"
 
 # Are there J1, J2, J3, J4 interactions?
 j1 = true
@@ -22,9 +20,9 @@ j2 = true
 j3 = false
 j4 = false
 
-L = 12
+L = 14
 
-hte_lattice = getLattice(L,"square",j1,j2,j3,j4);
+hte_lattice = getLattice(L,lattice_type,j1,j2,j3,j4);
 #println(hte_lattice.basis_positions)
 
 ### plot lattice
@@ -74,34 +72,49 @@ end
 #result = get_TGiip_Matsubara_xpoly(c_iipDyn_mat,36,1,0)
 #println("result = $(result)")
 
-#=
 j = 239 #square: 314,339, ladder: 30,31, chain: 26,27, 240, 239
 c_iipDyn_mat_subst = load_ciipDyn_mat_subst(1.0) #0.0
 c_iipEqualTime_mat = get_c_iipEqualTime_mat(c_iipDyn_mat_subst)
 println(getSitePosition(hte_lattice.lattice,j).-getSitePosition(hte_lattice.lattice,211))
 #println(c_iipEqualTime_mat[j,1])
 x_vec = 0:0.01:2.0  #2.3 #2.1
-Plots.plot(x_vec,Polynomial(c_iipEqualTime_mat[j,1]).(x_vec),xlabel=L"J/T",ylabel=L"\langle S^z_0S^z_\mathbf{r}\rangle=\langle(\hat{n}_0-1/2)(\hat{n}_\mathbf{r}-1/2)\rangle",label="bare series " * L"\mathbf{r}=(1,0)",size=(0.8*1.5*aps_width,0.8*aps_width),legend=:topright,color=color_vec[1],xlims=(-0.2,4.2)) #,ylims=(-0.045,0.005), xticks = ([0, 0.65, 1, 2, 3, 4], ["0", "0.65", "1", "2", "3", "4"]), yticks = ([0.00, -0.006, -0.01, -0.02, -0.03, -0.04], ["0.00", "–0.006", "-0.01", "-0.02", "-0.03", "-0.04"]))  #L"\langle S^z_i S^z_j \rangle_{NN}"
+plt = Plots.plot([1],[1],xlabel=L"J/T",ylabel=L"\langle S^z_0S^z_1\rangle=\langle(\hat{n}_0-1/2)(\hat{n}_1-1/2)\rangle",label="",size=(aps_width,0.7*aps_width),legend=:right,xlims=(0.0,1.55),ylims=(-25,2)) # =\langle(\hat{n}_0-1/2)(\hat{n}_\mathbf{r}-1/2)\rangle, xticks = ([0, 0.65, 1, 2, 3, 4], ["0", "0.65", "1", "2", "3", "4"]), yticks = ([0.00, -0.006, -0.01, -0.02, -0.03, -0.04], ["0.00", "–0.006", "-0.01", "-0.02", "-0.03", "-0.04"]))  #L"\langle S^z_i S^z_j \rangle_{NN}"
+#Plots.plot!(plt,x_vec,Polynomial(c_iipEqualTime_mat[j,1]).(x_vec),label="bare series",color=color_vec[1])
 f = 0.75 # 0.75
 ufromx_mat = get_LinearTrafoToCoeffs_u(n_max,f)
-x_vec2 = 0:0.01:4.5  #4.5
+x_vec2 = 0:0.01:2.0  #4.5
 u_vec = tanh.(f .* x_vec2)
 p_u = Polynomial(ufromx_mat*c_iipEqualTime_mat[j,1])
 x_vec3 = 0:0.01:3.0  #3.5 #3.0
-Plots.plot!(x_vec3,robustpade(Polynomial(c_iipEqualTime_mat[j,1]),7,7).(x_vec3), label="x-Padé[7,7]", linestyle=:dashdot, color=color_vec[1])
+#Plots.plot!(x_vec3,robustpade(Polynomial(c_iipEqualTime_mat[j,1]),7,7).(x_vec3), label="x-Padé[7,7]", linestyle=:dashdot, color=color_vec[1])
 #Plots.plot!(x_vec2,robustpade(Polynomial(c_iipEqualTime_mat[j,1]),5,5).(x_vec2), label="x-Padé[5,5]", linestyle=:dash)
-Plots.plot!(x_vec2,robustpade(p_u,7,7).(u_vec), label="u-Padé[7,7], f=$(f)", linestyle=:dash, color=color_vec[1])
+Plots.plot!(x_vec2,robustpade(p_u,7,7).(u_vec).*10^3, label="Dyn-HTE", color=color_vec[1])  # u-Padé[7,7], f=$(f)
 #Plots.plot!(x_vec2,robustpade(p_u,5,5).(u_vec), label="u-Padé[5,5], f=$(f)", linestyle=:dash)
 #display(current())
 
 # Korea
+dat = [-3.3929177159542334, -2.9021326769858664, -1.2543486637865549, -4.654115016390591, -4.424717913509754, -1.4140145018778636, 1.3431129648524802, -1.5891381097627182, -1.835176823046698, -6.06694906975229, -1.1941322210885126]
+corr = Statistics.mean(dat)
+err = Statistics.std(dat)
+println(corr)
+println(err)
+#Plots.plot!([-0.2,4.2],[corr,corr], color=:black, linestyle=:dash, label="Experiment")
+Plots.plot!([-0.2,4.1], fill(corr, 2), ribbon=fill(err, 2), fillalpha=0.1, color=:black, linestyle=:dash, label="Experiment")
+Plots.plot!([0.41,0.41],[-50,corr], color=:gray, linestyle=:dot, label=false)
 
-Plots.plot!([-0.2,0.65],[-0.006,-0.006], color=:gray, linestyle=:dash, label=false)
-Plots.plot!([0.65,0.65],[-0.05,-0.006], color=:gray, linestyle=:dash, label=false)
+# save data
+#=
+open("Correlations.txt", "w") do io
+    println(io, "J/T\tCorrelation")
+    for (x,y) in zip(x_vec, robustpade(p_u,7,7).(u_vec))
+        println(io, "$x\t$y")
+    end
+end
+=#
 
-
-if true
+if false
     j = 240
+    println(getSitePosition(hte_lattice.lattice,j).-getSitePosition(hte_lattice.lattice,211))
     Plots.plot!(x_vec,Polynomial(c_iipEqualTime_mat[j,1]).(x_vec),label="bare series " * L"\mathbf{r}=(1,1)",color=color_vec[2])  #L"\langle S^z_i S^z_j \rangle_{NN}"
     f = 0.75 # 0.5
     ufromx_mat = get_LinearTrafoToCoeffs_u(n_max,f)
@@ -113,9 +126,9 @@ if true
     #Plots.plot!(x_vec2,robustpade(p_u,5,5).(u_vec), label="u-Padé, f=$(f)", linestyle=:dash, color=color_vec[2])
     #Plots.hline!([-0.041])
 end
-#Plots.savefig("Images/correlations_ladder_full.svg")
+#Plots.savefig("Images/correlations_square_XX.svg")
 display(current())
-=#
+
 
 #result_suscept = sum([get_TGiip_Matsubara_xpoly(c_iipEqualTime_mat, j, 1, 0) for j in 1:hte_lattice.lattice.length])
 #println("uniform susceptebility = $(result_suscept)")
@@ -138,7 +151,7 @@ end
 #########################################################################################
 ###### Dynamic structure factor (DSF) ###################################################
 #########################################################################################
-if true
+if false
     # for loop with multiple J2/J1
     #k_pihalf = []
     #a_vec = 1 ./ [0.5,0.8,1.0]
@@ -259,7 +272,7 @@ if true
 end
 
 ###### plot JS(k,ω)
-if true
+if false
     fig = Figure(fontsize=8,size=(aps_width,0.6*aps_width));
     ax=Axis(fig[1,1],xlabel=L"\mathbf{k}",ylabel=L"\omega/J=w",xlabelsize=8,ylabelsize=8);
     hm=CairoMakie.heatmap!(ax,collect(0:Nk)/(Nk),w_vec ./ sc, JSkw_mat .* sc,colormap=:viridis,colorrange=(0.001,0.4),highclip=:white);
